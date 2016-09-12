@@ -9,6 +9,9 @@ Matthew Melchert (mjm282@pitt.edu)
 2. Any user *u* may create a group, however only users with certain priveleges may delete them.
   * This is to ensure that nobody can delete anybody else's group, but anyone in the system may make a group to share files. This makes no assumption of the threat model
 3. Only certain user may add/remove any other user *u* to/from group *g*, however all users may remove themselves from groups
+4. A user must be a member of group *g* to upload any file *f* to be shared with that group
+5. If a file *f* is shared with a group *g*, a user must be a member of group *g* to view/edit/download *f*
+
 ## Section 2: Threat Models
 1. Public file sharing system:
   * 
