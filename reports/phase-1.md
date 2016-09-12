@@ -45,3 +45,4 @@ Matthew Melchert (mjm282@pitt.edu)
 
 
 ## Section 3: References
+* https://www2.clarku.edu/offices/its/policies/
