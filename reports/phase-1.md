@@ -8,9 +8,12 @@ Matthew Melchert (mjm282@pitt.edu)
   * This is to ensure that that only authorized users may access the system, assuming that it is a private system.
 2. Any user *u* may create a group, however only users with certain priveleges may delete them.
   * This is to ensure that nobody can delete anybody else's group, but anyone in the system may make a group to share files. This makes no assumption of the threat model. 
-3. Only certain user may add/remove any other user *u* to/from group *g*, however all users may remove themselves from groups. 
+3. Only certain users may add/remove any other user *u* to/from group *g*, however all users may remove themselves from groups. 
+  * This is to ensure that a user can not join groups at will unless they are added to the group by an authorized member. This makes no assumption of the threat model.
 4. A user must be a member of group *g* to upload any file *f* to be shared with that group.
+  * This is to ensure that only files that are authorized by group members may shared for view within the group. This makes no assumption of the threat model.
 5. If a file *f* is shared with a group *g*, a user must be a member of group *g* to view/edit/download *f*.
+  * This is to ensure that a file can only be accessed by someone who has permission to do so, otherwise anybody could see/edit possibly sensitive information. This makes no assumption of the threat model.
 6. User must be authenticated to access the system.
   * This is to ensure a user is who they say they are. 
 7. All groups must include at least one user who can delete files.
