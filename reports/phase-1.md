@@ -37,7 +37,8 @@ Matthew Melchert (mjm282@pitt.edu)
 
 ## Section 2: Threat Models
 1. Public file sharing system:
-  * 
+  * Users may access the system to perform all authorized activities from any internet connected client device. Users must verify them identify via email to create an account, or may be added directly to the system by a system administrator. Users must authenticate upon login in order to gain access to their account.
+  * It is assumed that anyone can listen in on the communications though the internet between the client and file sharing service.
 2. Semi-Private System: Campus-wide sharing
   * Users may use the system to upload, download, and edit shared files between other members on a campus network. Users must be connected to the campus network in order to access the system. Users must be added by an administrator to access the system and must verify their identity upon access to the system. If a user wants to connect to the system remotely, they must connect to the campus' network via a VPN. 
   * It can be assumed that anybody on the campus' network may be listening in on the communications through the network. Servers on the network may be able to connect to the broad internet. 
