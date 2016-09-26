@@ -11,7 +11,7 @@ public class Token implements UserToken
 	{
 		setServer(s);
 		setUser(u);
-		setUGroups(g);
+		setGroups(g);
 	}
 	
 	//setters and getters for the class
@@ -25,16 +25,36 @@ public class Token implements UserToken
 		uName = name;
 	}
 	
-	private void setUGroups(List<String> names)
+	private void setGroups(List<String> names)
 	{
 		uGroups = names;
 	}
+
+	//adds a group to the list of groups
+	//if the group already exists, returns false
+	public boolean addGroup(String g)
+	{
+		if (uGroups.indexOf(g) == -1)
+		{
+			uGroups.add(g);
+			return true;
+		}
+		else return false;
+	}
 	
-	//probably going to need to be an AddGroup in here to add groups to a token
-	//need to read the client/server code again to see if it's going to be needed
+	//deletes a group from a user's group list
+	//if the group doesn't exist return false
+	public boolean removeGroup(String g)
+	{
+		if(uGroups.indexOf(g) != -1)
+		{
+			uGroups.remove(g);
+			return true;
+		}
+		else return false;
+	}
 	
 	//used the UserToken interface's methods as the class' getters
-	
 	//returns the server name
 	public String getIssuer()
 	{
