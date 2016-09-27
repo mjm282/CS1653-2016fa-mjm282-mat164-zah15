@@ -5,19 +5,26 @@ public class GroupList implements java.io.Serializable
 	
 	//this group list is mostly going to be a straight up clone of UserList.java
 	
+	//uses a hashtable to store each group, mapped by their names
+	//a group contains the list of users in its group and a list of owners in the group, both just ArrayList<String>
 	private Hashtable<String, Group> gList = new Hashtable<String, Group>();
 	
+	//creates a new group and maps it into the hashtable
+	//assumes that some check will be performed elsewhere as to whether or not the group already exists
 	public synchronized void addGroup(String groupName)
 	{
 		Group newGroup = new Group();
-		gList.put(groupname, newGroup);
+		gList.put(groupName, newGroup);
 	}
 	
+	//deletes a group from the hashtable
 	public synchronized void deleteGroup(String groupName)
 	{
 		gList.remove(groupName);
 	}
 	
+	//checks the existence of a group in the table
+	//if it already exists, returns true, if not false
 	public synchronized boolean checkGroup(String groupName)
 	{
 		if(gList.containsKey(groupName)) 
@@ -30,25 +37,31 @@ public class GroupList implements java.io.Serializable
 		}
 	}
 	
+	//Implementation of LMEMBERS message, returns a list of members in a specified group
 	public synchronized ArrayList<String> getGroupMembers(String groupName)
 	{
 		return gList.get(groupName).getUsers();
 	}
 	
+	//Not a required method, just figured listing owners would be useful
 	public synchronized ArrayList<String> getGroupOwners(String groupName)
 	{
 		return gList.get(groupName).getOwners();
 	}
 	
+	//implementation of AUSERTOGROUP
 	public synchronized void addGroupUser(String groupName, String username)
 	{
 		gList.get(groupName).addUser(username);
 	}
 	
+	//implementation of RUSERFROMGROUP
 	public synchronized void removeGroupUser(String groupName, String username)
 	{
 		gList.get(groupName).removeUser(username);
 	}
+	
+	//adding and removing owners isn't required in phase 2 but I felt it would be useful later
 	
 	public synchronized void addGroupOwner(String groupName, String username)
 	{
