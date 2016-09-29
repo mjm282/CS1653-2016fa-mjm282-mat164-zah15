@@ -84,9 +84,9 @@ public class GroupServer extends Server
 		//Open group file to get group list
 		try
 		{
-			fis = new FileInputStream(groupFile);
+			FileInputStream fis = new FileInputStream(groupFile);
 			groupStream = new ObjectInputStream(fis);
-			groupList = (GroupList)groupstream.readObject();
+			groupList = (GroupList)groupStream.readObject();
 			//runtime.gc();
 		}
 		catch(FileNotFoundException e)
@@ -110,7 +110,7 @@ public class GroupServer extends Server
 		}
 		catch(IOException e)
 		{
-			System.out.prinln("Error reading from GroupList file");
+			System.out.println("Error reading from GroupList file");
 			System.exit(-1);
 		}
 		catch(ClassNotFoundException e)
