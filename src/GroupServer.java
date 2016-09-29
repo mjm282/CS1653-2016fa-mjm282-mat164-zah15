@@ -62,11 +62,11 @@ public class GroupServer extends Server
 			userList = new UserList();
 			groupList = new GroupList();
 			userList.addUser(username);
-			//CHECK GROUPLIST IMPLEMENTATION
-			/*
+
 			groupList.addGroup("ADMIN");
-			groupList.addUser(username);
-			*/
+			groupList.addGroupUser("ADMIN", username);
+			groupList.addGroupOwner("ADMIN", username);
+
 			userList.addGroup(username, "ADMIN");
 			userList.addOwnership(username, "ADMIN");
 		}
@@ -100,10 +100,11 @@ public class GroupServer extends Server
 			//Create a new group list, add current user to the ADMIN group. They now own the ADMIN group.
 			groupList = new GroupList();
 			//CHECK GROUPLIST IMPLEMENTATION
-			/*
+
 			groupList.addGroup("ADMIN");
-			groupList.addUser(username);
-			*/
+			groupList.addGroupUser("ADMIN", username);
+			groupList.addGroupOwner("ADMIN", username);
+
 			userList.addGroup(username, "ADMIN");
 			userList.addOwnership(username, "ADMIN");
 		}
