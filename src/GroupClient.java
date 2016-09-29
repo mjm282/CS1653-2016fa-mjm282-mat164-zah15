@@ -251,4 +251,7 @@ public class GroupClient extends Client implements GroupClientInterface
 			}
 	 }
 
+	//OPTIONAL: Create addOwnerToGroup
+	
+	//OPTIONAL: Create deleteOwnerFromGroup
 }
