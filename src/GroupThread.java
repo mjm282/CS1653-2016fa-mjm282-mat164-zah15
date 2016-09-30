@@ -365,17 +365,31 @@ public class GroupThread extends Thread
 		}
 	}
 	
+	//displays a printout of all of the members of a specific group
 	private boolean listMembers(String groupName, UserToken yourToken)
 	{
 		String requester = yourToken.getSubject();
 		
 		if(my_gs.userList.checkUser(requester))
 		{
-			
+			//user must be admin or a member of the group to view its members
+			ArrayList<String> temp = my_gs.userList.getUserGroups(requester);
+			if(temp.contains("ADMIN") || my_gs.groupList.checkMember(groupName, requester))
+			{
+				temp = my_gs.groupList.getGroupMembers(groupName);
+				for(int i = 0; i < temp.size(); i++)
+				{
+					System.out.println(temp.get(i));
+				}
+			}
+			else
+			{
+				return false; //user can't view the group's members
+			}
 		}
 		else
 		{
-			return false;
+			return false; //requester doesn't exist
 		}
 	}
 	
@@ -385,11 +399,34 @@ public class GroupThread extends Thread
 		
 		if(my_gs.userList.checkUser(requester))
 		{
-			
+			ArrayList<String> temp = my_gs.userList.getUserGroups(requester);
+		
+			//checks if you're an admin or an owner
+			if(temp.contains("ADMIN") || my_gs.groupList.checkOwner(groupName, requester))
+			{ 
+				//is the user already in the group?
+				if(my_gs.groupList.checkMember(groupName, username)
+				{
+					return false; //user already in the group
+				}
+				else
+				{
+					//adds user to groupList
+					my_gs.groupList.addGroupUser(groupName, username);
+					//adds group to user's list of groups
+					my_gs.userList.addGroup(username, groupName);
+					
+					return true;
+				}
+			}
+			else
+			{
+				return false; //no permission to add a user
+			}
 		}
 		else
 		{
-			return false;
+			return false; //requester doesn't exist
 		}
 	}
 	
@@ -399,11 +436,33 @@ public class GroupThread extends Thread
 		
 		if(my_gs.userList.checkUser(requester))
 		{
-			
+			//checks admin/ownership
+			ArrayList<String> temp = my_gs.userList.getUserGroups(requester);
+			if(temp.contains("ADMIN") || my_gs.groupList.checkOwner(groupName, requester))
+			{
+				//is the user even in the group?
+				if(my_gs.groupList.checkMember(groupName, username))
+				{
+					//remove from grouplist
+					my_gs.groupList.removeGroupUser(groupName, username);
+					//remove from user's list of groups
+					my_gs.userList.removeGroup(username, groupName);
+					
+					return true;
+				}
+				else
+				{
+					return false; //user isn't a member
+				}
+			}
+			else
+			{
+				return false; //no permission to delete users
+			}
 		}
 		else
 		{
-			return false;
+			return false; //requester doesn't exist
 		}
 	}
 }
