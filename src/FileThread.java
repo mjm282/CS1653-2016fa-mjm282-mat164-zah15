@@ -8,6 +8,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+// I used an ArrayList for LFILES
+import java.util.ArrayList;
 
 public class FileThread extends Thread
 {
@@ -37,6 +39,41 @@ public class FileThread extends Thread
 				if(e.getMessage().equals("LFILES"))
 				{
 				    /* TODO: Write this handler */
+				    if(e.getObjContents().size() < 1)
+					{
+						// If the ArrayList is empty
+						response = new Envelope("FAIL-BADCONTENTS");
+					}
+					else // ArrayList is not empty
+					{
+						if(e.getObjContents().get(0) == null)
+						{
+							response = new Envelope("FAIL-BADTOKEN");
+						}
+						else
+						{
+							// Extract user token
+							UserToken workingToken = (UserToken)e.getObjContents().get(0);
+							// Lists of Files
+							List<ShareFile> allFiles = FileServer.fileList.getFiles(); // Full file list from server
+							List<String> userFiles = new ArrayList<String>(); // List of user's files
+							
+							if (allFiles != null) // If there are no files on the server, there is nothing for the user
+							{
+								for (ShareFile sf: allFiles)
+								{
+									if (workingToken.getGroups().contains(sf.getGroup())) // If a file is in a group the user is a member of
+									{
+										userFiles.add(sf.getPath() + "\t(" + sf.getOwner() + "/" + sf.getGroup() + ")");
+									}
+								}
+							}
+							
+							response = new Envelope("OK"); // Set the response to indicate success
+							response.addObject(userFiles); // Append the file list the responce
+						}
+					}
+					output.writeObject(response); // Send back any responce
 				}
 				if(e.getMessage().equals("UPLOADF"))
 				{
