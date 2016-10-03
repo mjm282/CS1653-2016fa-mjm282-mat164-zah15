@@ -30,6 +30,9 @@ public class GroupServer extends Server
 		super(_port, "ALPHA");
 	}
 
+	ObjectOutputStream userOutStream;
+	ObjectOutputStream groupOutStream;
+
 	public void start() {
 		// Overwrote server.start() because if no user file exists, initial admin account needs to be created
 
@@ -39,6 +42,7 @@ public class GroupServer extends Server
 		Scanner console = new Scanner(System.in);
 		ObjectInputStream userStream;
 		ObjectInputStream groupStream;
+		String username;
 
 		//This runs a thread that saves the lists on program exit
 		Runtime runtime = Runtime.getRuntime();
@@ -56,7 +60,7 @@ public class GroupServer extends Server
 			System.out.println("UserList File Does Not Exist. Creating UserList...");
 			System.out.println("No users currently exist. Your account will be the administrator.");
 			System.out.print("Enter your username: ");
-			String username = console.next();
+			username = console.next();
 
 			//Create a new list, add current user to the ADMIN group. They now own the ADMIN group.
 			userList = new UserList();
@@ -69,6 +73,16 @@ public class GroupServer extends Server
 
 			userList.addGroup(username, "ADMIN");
 			userList.addOwnership(username, "ADMIN");
+			try
+			{
+				groupOutStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
+				groupOutStream.writeObject(this.groupList);
+			}
+			catch(Exception ee)
+			{
+				System.err.println("Error: " + e.getMessage());
+				e.printStackTrace(System.err);
+			}
 		}
 		catch(IOException e)
 		{
@@ -95,10 +109,10 @@ public class GroupServer extends Server
 			System.out.println("No groups currently exist. Group \"ADMIN\" will be created.");
 			System.out.println("Your account will be the administrator.");
 			System.out.print("Enter your username: ");
-			String username = console.next();
+			username = console.next();
 
 			//Create a new group list, add current user to the ADMIN group. They now own the ADMIN group.
-			groupList = new GroupList();
+			//groupList = new GroupList();
 			//CHECK GROUPLIST IMPLEMENTATION
 
 			groupList.addGroup("ADMIN");
@@ -162,11 +176,12 @@ class ShutDownListener extends Thread
 	public void run()
 	{
 		System.out.println("Shutting down server");
-		ObjectOutputStream outStream;
+		ObjectOutputStream userOutStream;
+		ObjectOutputStream groupOutStream;
 		try
 		{
-			outStream = new ObjectOutputStream(new FileOutputStream("UserList.bin"));
-			outStream.writeObject(my_gs.userList);
+			userOutStream = new ObjectOutputStream(new FileOutputStream("UserList.bin"));
+			userOutStream.writeObject(my_gs.userList);
 		}
 		catch(Exception e)
 		{
@@ -175,8 +190,8 @@ class ShutDownListener extends Thread
 		}
 		try
 		{
-			outStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
-			outStream.writeObject(my_gs.groupList);
+			groupOutStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
+			groupOutStream.writeObject(my_gs.groupList);
 		}
 		catch(Exception e)
 		{
@@ -202,11 +217,12 @@ class AutoSave extends Thread
 			{
 				Thread.sleep(300000); //Save group and user lists every 5 minutes
 				System.out.println("Autosave group and user lists...");
-				ObjectOutputStream outStream;
+				ObjectOutputStream userOutStream;
+				ObjectOutputStream groupOutStream;
 				try
 				{
-					outStream = new ObjectOutputStream(new FileOutputStream("UserList.bin"));
-					outStream.writeObject(my_gs.userList);
+					userOutStream = new ObjectOutputStream(new FileOutputStream("UserList.bin"));
+					userOutStream.writeObject(my_gs.userList);
 				}
 				catch(Exception e)
 				{
@@ -215,8 +231,8 @@ class AutoSave extends Thread
 				}
 				try
 				{
-					outStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
-					outStream.writeObject(my_gs.groupList);
+					groupOutStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
+					groupOutStream.writeObject(my_gs.groupList);
 				}
 				catch(Exception e)
 				{
