@@ -10,7 +10,7 @@ import java.util.List;
  * server.
  *
  */
-public interface UserToken
+public interface UserToken extends java.io.Serializable
 {
     /**
      * This method should return a string describing the issuer of
