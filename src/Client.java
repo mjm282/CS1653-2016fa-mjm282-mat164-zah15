@@ -17,19 +17,22 @@ public abstract class Client {
 		/* TODO: Write this method */
 
 		try {
-			// Keep trying to connect until server comes online
-			while (!isConnected()){
-				// Create socket
-				sock = new Socket(server, port);
-			}
+			// Create socket
+			sock = new Socket(server, port);
+			
+			// Set up I/O
+			output = new ObjectOutputStream(sock.getOutputStream());
+			input = new ObjectInputStream(sock.getInputStream());
+
 			return isConnected();
+			
 		}
 		catch(Exception e){
 	    System.err.println("Error: " + e.getMessage());
 	    e.printStackTrace(System.err);
 			// Returning false becosue something bad happened
 			return false;
-	}
+		}
 
 
 
