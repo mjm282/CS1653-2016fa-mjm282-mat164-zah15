@@ -51,6 +51,8 @@ public class driver
 		
 		String username;
 		String groupName = "test"; // Fake groupName so that it compiles
+		String sFile = "test";
+		String dFile = "test";
 		UserToken yourToken;
 
 		System.out.println("Please enter your username");
@@ -61,14 +63,18 @@ public class driver
 		while(gClient.isConnected())
 		{
 			System.out.println("Main Menu");
-			System.out.println("Create User: cuser");
-			System.out.println("Delete User: duser");
-			System.out.println("Create Group: cgroup");
-			System.out.println("Delete Group: dgroup");
-			System.out.println("List Group Members: lmembers");
-			System.out.println("Add User to Group: ausertogroup");
-			System.out.println("Remove User from Group: rmuserfromgroup");
-			System.out.println("Disconnect: disconnect");
+			System.out.println("Create User: cuser"); // Done
+			System.out.println("Delete User: duser"); // Done
+			System.out.println("Create Group: cgroup"); // Done
+			System.out.println("Delete Group: dgroup"); // Done
+			System.out.println("List Group Members: lmembers"); // Done
+			System.out.println("Add User to Group: ausertogroup"); // Done
+			System.out.println("Remove User from Group: rmuserfromgroup"); // Done
+			System.out.println("List Files: lfiles"); // Done
+			System.out.println("Upload File: uploadf"); // Done
+			System.out.println("Download: downloadf "); // Done
+			System.out.println("Delete File: deletef");
+			System.out.println("Disconnect: disconnect"); // Done
 			
 			groupCommand = scan.next();
 			
@@ -149,6 +155,48 @@ public class driver
 					System.out.println("Permission Denied");
 				}
 			}
+			
+			else if (groupCommand.equals("lfiles"))
+			{
+				System.out.println(fClient.listFiles(yourToken));
+			}
+			
+			else if (groupCommand.equals("uploadf"))
+			{
+				System.out.println("Please Choose a Source File");
+				sFile = scan.next();
+				System.out.println("Please Select a Destination File Name");
+				dFile = scan.next();
+				System.out.println("Please Choose a Group to Share With");
+				groupName = scan.next();
+				if (!fClient.upload(sFile, dFile, groupName, yourToken))
+				{
+					System.out.println("Permission Denied");
+				}
+			}
+			
+			else if (groupCommand.equals("downloadf"))
+			{
+				System.out.println("Please Choose a Source File");
+				sFile = scan.next();
+				System.out.println("Please Select a Destination File Name");
+				dFile = scan.next();
+				if (!fClient.download(sFile, dFile, yourToken))
+				{
+					System.out.println("Permission Denied");
+				}
+			}
+			
+			else if (groupCommand.equals("deletef"))
+			{
+				System.out.println("Please Choose a File to Delete");
+				sFile = scan.next();
+				if (!fClient.delete(sFile, yourToken))
+				{
+					System.out.println("File does not Exist");
+				}
+			}
+			
 			else if(groupCommand.equals("disconnect"))
 			{
 				// Close Connections
