@@ -78,7 +78,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
-					
+					System.out.println(response.getMessage());
 					output.writeObject(response);
 				}
 				else if(message.getMessage().equals("DUSER")) //Client wants to delete a user
@@ -105,7 +105,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
-					
+					System.out.println(response.getMessage());
 					output.writeObject(response);
 				}
 				else if(message.getMessage().equals("CGROUP")) //Client wants to create a group
@@ -133,6 +133,7 @@ public class GroupThread extends Thread
 						}
 					}
 					
+					System.out.println(response.getMessage());
 					output.writeObject(response);
 				}
 				else if(message.getMessage().equals("DGROUP")) //Client wants to delete a group
@@ -159,7 +160,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
-					
+					System.out.println(response.getMessage());
 					output.writeObject(response);
 				}
 				else if(message.getMessage().equals("LMEMBERS")) //Client wants a list of members in a group
@@ -186,7 +187,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
-					
+					System.out.println(response.getMessage());
 					output.writeObject(response);
 				}
 				else if(message.getMessage().equals("AUSERTOGROUP")) //Client wants to add user to a group
@@ -217,7 +218,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
-					
+					System.out.println(response.getMessage());
 					output.writeObject(response);
 				}
 				else if(message.getMessage().equals("RUSERFROMGROUP")) //Client wants to remove user from a group
@@ -249,6 +250,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					System.out.println(response.getMessage());
 				}
 				else if(message.getMessage().equals("DISCONNECT")) //Client wants to disconnect
 				{
@@ -258,6 +260,7 @@ public class GroupThread extends Thread
 				else
 				{
 					response = new Envelope("FAIL"); //Server does not understand client request
+					System.out.println(response.getMessage());
 					output.writeObject(response);
 				}
 			}while(proceed);	
@@ -413,6 +416,8 @@ public class GroupThread extends Thread
 					
 				my_gs.groupList.addGroupOwner(groupName, requester); //sets creator as owner
 				my_gs.groupList.addGroupUser(groupName, requester); //sets creator as a group member
+				my_gs.userList.addGroup(requester, groupName); 
+				my_gs.userList.addOwnership(requester, groupName);
 				return true;
 			}
 		}
