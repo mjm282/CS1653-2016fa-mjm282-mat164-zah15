@@ -572,26 +572,20 @@ public class GroupThread extends Thread
 		
 		if(my_gs.userList.checkUser(requester))
 		{
-			System.out.println("User exists");
 			//checks admin/ownership
 			ArrayList<String> temp = my_gs.userList.getUserGroups(requester);
 			if(temp.contains("ADMIN") || my_gs.groupList.checkOwner(groupName, requester))
 			{
-				System.out.println("Admin or owner");
 				//does the group exist
 				if(my_gs.groupList.checkGroup(groupName))
 				{
-					System.out.println("Group exists");
 					//is the user even in the group?
 					if(my_gs.groupList.checkMember(groupName, username))
 					{
-						System.out.println("user is in group");
 						//remove from grouplist
 						my_gs.groupList.removeGroupUser(groupName, username);
-						System.out.println("group user removed");
 						//remove from user's list of groups
 						my_gs.userList.removeGroup(username, groupName);
-						System.out.println("user group removed");
 						
 						return true;
 					}
