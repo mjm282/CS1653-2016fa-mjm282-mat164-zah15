@@ -59,26 +59,27 @@ public class driver
 		username = scan.next();
 		yourToken = gClient.getToken(username);
 		System.out.println("Your Groups: " + yourToken.getGroups());
-		
+		System.out.println("Type 'help' for a list of commands");
 		while(gClient.isConnected())
 		{
-			System.out.println("Main Menu");
-			System.out.println("Create User: cuser"); // Done
-			System.out.println("Delete User: duser"); // Done
-			System.out.println("Create Group: cgroup"); // Done
-			System.out.println("Delete Group: dgroup"); // Done
-			System.out.println("List Group Members: lmembers"); // Done
-			System.out.println("Add User to Group: ausertogroup"); // Done
-			System.out.println("Remove User from Group: rmuserfromgroup"); // Done
-			System.out.println("List Files: lfiles"); // Done
-			System.out.println("Upload File: uploadf"); // Done
-			System.out.println("Download: downloadf "); // Done
-			System.out.println("Delete File: deletef");
-			System.out.println("Disconnect: disconnect"); // Done
 			
 			groupCommand = scan.next();
-			
-			if(groupCommand.equals("cuser"))
+			if(groupCommand.equals("help"))
+			{
+				System.out.println("Create User: cuser"); // Done
+				System.out.println("Delete User: duser"); // Done
+				System.out.println("Create Group: cgroup"); // Done
+				System.out.println("Delete Group: dgroup"); // Done
+				System.out.println("List Group Members: lmembers"); // Done
+				System.out.println("Add User to Group: ausertogroup"); // Done
+				System.out.println("Remove User from Group: rmuserfromgroup"); // Done
+				System.out.println("List Files: lfiles"); // Done
+				System.out.println("Upload File: uploadf"); // Done
+				System.out.println("Download: downloadf "); // Done
+				System.out.println("Delete File: deletef");
+				System.out.println("Disconnect: disconnect"); // Done				
+			}
+			else if(groupCommand.equals("cuser"))
 			{
 				System.out.println("Please enter the new username");
 				username = scan.next();
@@ -120,22 +121,22 @@ public class driver
 			{
 				System.out.println("Please enter the group name to have members listed");
 				groupName = scan.next();
-				List<String> listMembers = gClient.listMembers(groupName, yourToken);
+				List<String> lMembers = gClient.listMembers(groupName, yourToken);
 				
-				if (listMembers == null)
+				if (lMembers == null)
 				{
 					System.out.println("Permission Denied");
 				}
 				else
 				{
-					System.out.println(listMembers.toString());
+					System.out.println(lMembers.toString());
 				}
 			}
 			else if(groupCommand.equals("ausertogroup"))
 			{
 				System.out.println("Please enter a group to add a user");
 				groupName = scan.next();
-				System.out.println("Please enter the user to add to group" + groupName);
+				System.out.println("Please enter the user to add to group " + groupName);
 				username = scan.next();
 				
 				if (!gClient.addUserToGroup(username, groupName, yourToken))

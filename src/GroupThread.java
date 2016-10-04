@@ -203,8 +203,8 @@ public class GroupThread extends Thread
 							{
 								if(message.getObjContents().get(2) != null)
 								{
-									String groupName = (String)message.getObjContents().get(0);
-									String username = (String)message.getObjContents().get(1);
+									String username = (String)message.getObjContents().get(0);
+									String groupName = (String)message.getObjContents().get(1);
 									UserToken yourToken = (UserToken)message.getObjContents().get(2);
 									
 									if(addUserToGroup(username, groupName, yourToken))
@@ -233,8 +233,8 @@ public class GroupThread extends Thread
 							{
 								if(message.getObjContents().get(2) != null)
 								{
-									String groupName = (String)message.getObjContents().get(0);
-									String username = (String)message.getObjContents().get(1);
+									String username = (String)message.getObjContents().get(0);
+									String groupName = (String)message.getObjContents().get(1);
 									UserToken yourToken = (UserToken)message.getObjContents().get(2);
 									
 									if(removeUserFromGroup(username, groupName, yourToken))
@@ -246,6 +246,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					output.writeObject(response);
 				}
 				else if(message.getMessage().equals("DISCONNECT")) //Client wants to disconnect
 				{
@@ -491,16 +492,19 @@ public class GroupThread extends Thread
 	{
 		String requester = yourToken.getSubject();
 		
+		//does requester exist
 		if(my_gs.userList.checkUser(requester))
 		{
-			//user must be admin or a member of the group to view its members
+			//does group exist
 			if(my_gs.groupList.checkGroup(groupName))
 			{
+				//user must be admin or a member of the group to view its members
 				ArrayList<String> temp = my_gs.userList.getUserGroups(requester);
 				if(temp.contains("ADMIN") || my_gs.groupList.checkMember(groupName, requester))
 				{
-					temp = my_gs.groupList.getGroupMembers(groupName);
-					return temp;
+					ArrayList<String> ret = new ArrayList<String>();
+					ret = my_gs.groupList.getGroupMembers(groupName);
+					return ret;
 				}
 				else
 				{
@@ -568,19 +572,26 @@ public class GroupThread extends Thread
 		
 		if(my_gs.userList.checkUser(requester))
 		{
+			System.out.println("User exists");
 			//checks admin/ownership
 			ArrayList<String> temp = my_gs.userList.getUserGroups(requester);
 			if(temp.contains("ADMIN") || my_gs.groupList.checkOwner(groupName, requester))
 			{
+				System.out.println("Admin or owner");
+				//does the group exist
 				if(my_gs.groupList.checkGroup(groupName))
 				{
+					System.out.println("Group exists");
 					//is the user even in the group?
 					if(my_gs.groupList.checkMember(groupName, username))
 					{
+						System.out.println("user is in group");
 						//remove from grouplist
 						my_gs.groupList.removeGroupUser(groupName, username);
+						System.out.println("group user removed");
 						//remove from user's list of groups
 						my_gs.userList.removeGroup(username, groupName);
+						System.out.println("user group removed");
 						
 						return true;
 					}
