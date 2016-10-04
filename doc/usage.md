@@ -16,7 +16,7 @@ To start the File Server:
  - Enter the directory containing `RunFileServer.class`
  - Type `java RunFileServer [port number]`
 
-Note that the port number argument to `RunFileServer is optional.  This argument speficies the port that the File Server will list to. If unspecified, it defaults to port 4321.
+Note that the port number argument to `RunFileServer` is optional.  This argument speficies the port that the File Server will list to. If unspecified, it defaults to port 4321.
 
 The file server will create a shared_files inside the working directory if one does not exist. The file server is now online.
 
@@ -25,3 +25,63 @@ The file server will create a shared_files inside the working directory if one d
 To reset the Group Server, delete the file `UserList.bin`
 
 To reset the File Server, delete the `FileList.bin` file and the `shared_files/` directory.
+
+## Running the driver
+
+To start the driver:
+ - Enter the directory containing `driver.class`
+ - Type `java driver`
+
+Note that a group server and file server must both be running and using separate ports to properly use the driver program.
+
+The driver will ask for the address and port number of the group server. Once it has connected the driver will ask for the address and port number of the file server. After both servers are connected enter your username. If your username exists in the `UserList.bin` file, you will see a list of groups where you have membership. Typing `help` will display a list of commands recognized by the program.
+
+## Creating a user
+
+ - Log into driver (must be a member of ADMIN)
+ - Type `cuser`
+ - Enter the username of the user to be created
+
+Note that adding the user does not put them into a group (See: Adding a user to group). Also, a user cannot be created if desired username already exists in the system.
+
+## Deleting a user
+
+ - Log into driver (must be a member of ADMIN)
+ - Type `duser`
+ - Enter the username of the user to be deleted
+
+Note that `UserList.bin` will not be refreshed until the user reconnects. 
+
+## Creating a group
+
+ - Log into driver
+ - Type `cgroup`
+ - Enter the name of the group you want to create
+
+## Deleting a group
+
+ - Log into driver (must be a member of ADMIN)
+ - Type `dgroup`
+ - Enter the name of the group you want to deleted
+
+## Listing members of a group
+
+ - Log into driver
+ - Type `lmembers`
+ - Enter the name of the group you want to see the members of
+
+Note that you must be a member of the specified group (or ADMIN) in order to see who else is a member.
+
+## Adding a user to a group
+
+ - Log into driver (must be a member of ADMIN)
+ - Type `ausertogroup`
+ - Enter the name of the group you want to add the user to
+ - Enter the name of the user you want to add to the group
+
+## Deleting a user from a group
+
+ - Log into driver (must be a member of ADMIN)
+ - Type `rmuserfromgroup`
+ - Enter the name of the group you want to delete the user from
+ - Enter the name of the user you want to delete from the group
