@@ -54,10 +54,17 @@ public class GroupList implements java.io.Serializable
 	//checks if the user is a group member
 	public synchronized boolean checkMember(String groupName, String username)
 	{
-		ArrayList<String> temp = gList.get(groupName).getUsers();
-		if(temp.contains(username))
+		if(checkGroup(groupName))
 		{
-			return true;
+			ArrayList<String> temp = gList.get(groupName).getUsers();
+			if(temp.contains(username))
+			{
+				return true;
+			}
+			else
+			{
+				return false;
+			}
 		}
 		else
 		{
