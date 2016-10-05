@@ -10,6 +10,8 @@ Note that the port number argument to `RunGroupServer` is optional.  This argume
 
 When the group server is first started, there are no users or groups. Since there must be an administer of the system, the user is prompted via the console to enter a username. This name becomes the first user and is a member of the *ADMIN* group.  No groups other than *ADMIN* will exist.
 
+To shut down the server simply press `ctrl-C`.
+
 ## Running the File Server
 
 To start the File Server:
@@ -20,13 +22,15 @@ Note that the port number argument to `RunFileServer` is optional.  This argumen
 
 The file server will create a shared_files inside the working directory if one does not exist. The file server is now online.
 
+To shut down the server simply press `ctrl-C`.
+
 ## Resetting the Group or File Server
 
 To reset the Group Server, delete the file `UserList.bin`
 
 To reset the File Server, delete the `FileList.bin` file and the `shared_files/` directory.
 
-## Running the driver
+## Running the Driver
 
 To start the driver:
  - Enter the directory containing `driver.class`
@@ -50,7 +54,7 @@ Note that adding the user does not put them into a group (See: Adding a user to 
  - Type `duser`
  - Enter the username of the user to be deleted
 
-Note that `UserList.bin` will not be refreshed until the user reconnects. 
+Note that `UserList.bin` will not be refreshed until the user reconnects.
 
 ## Creating a group
 
@@ -79,9 +83,44 @@ Note that you must be a member of the specified group (or ADMIN) in order to see
  - Enter the name of the group you want to add the user to
  - Enter the name of the user you want to add to the group
 
-## Deleting a user from a group
+## Removing a user from a group
 
  - Log into driver (must be a member of ADMIN)
  - Type `rmuserfromgroup`
  - Enter the name of the group you want to delete the user from
  - Enter the name of the user you want to delete from the group
+
+## Listing Files
+
+ - Log into driver
+ - Type `lfiles`
+
+## Uploading Files
+
+ - Log into driver
+ - Type `uploadf`
+ - Enter the name of the file to be uploaded
+ - Enter the new name of the file once it is uploaded
+
+Note that the upload destination defaults to the `shared_files` directory. Otherwise a full path must
+
+## Downloading Files
+
+ - Log into driver
+ - Type `downloadf`
+ - Enter the name of the file to be downloaded
+ - Enter the new name of the file once it is downloaded
+
+Note that the download destination defaults to the current directory of `FileClient.class`
+
+## Deleting Files
+
+ - Log into driver
+ - Type `deletef`
+ - Enter the name of the file to be deleted
+
+## Disconnecting
+
+ - Log into driver
+ - Type `disconnect`
+ 
