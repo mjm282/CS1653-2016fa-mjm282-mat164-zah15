@@ -99,7 +99,7 @@ Note that you must be a member of the specified group (or ADMIN) in order to see
 
  - Log into driver
  - Type `uploadf`
- - Enter the name of the file to be uploaded
+ - Enter the name of the file to be uploaded, use full file path eg /Users/csstudent/Documents/file.pdf
  - Enter the new name of the file once it is uploaded
 
 Note that the upload destination defaults to the `shared_files` directory. Otherwise a full path must
@@ -111,7 +111,7 @@ Note that the upload destination defaults to the `shared_files` directory. Other
  - Enter the name of the file to be downloaded
  - Enter the new name of the file once it is downloaded
 
-Note that the download destination defaults to the current directory of `FileClient.class`
+Note that the download destination defaults to the current directory of `FileClient.class` but you can also use a full file path eg /Users/csstudent/Downloads/file.pdf
 
 ## Deleting Files
 
