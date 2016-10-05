@@ -20,7 +20,7 @@ public class driver
 			try
 			{
 				gClient.connect(groupAddress, groupPort);
-				Thread.sleep(5000);
+				//Thread.sleep(5000);
 			}
 			catch(Exception e){
 				System.out.println("Connection Interrupted: " + e);
@@ -38,7 +38,7 @@ public class driver
 			try
 			{
 				fClient.connect(fileAddress, filePort);
-				Thread.sleep(5000);
+				//Thread.sleep(5000);
 			}
 			catch(Exception e){
 				System.out.println("Connection Interrupted: " + e);
