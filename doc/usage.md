@@ -26,9 +26,9 @@ To shut down the server simply press `ctrl-C`.
 
 ## Resetting the Group or File Server
 
-To reset the Group Server, delete the file `UserList.bin`
+Delete the file `UserList.bin` to reset the Group Server. 
 
-To reset the File Server, delete the `FileList.bin` file and the `shared_files/` directory.
+Delete the `FileList.bin` file and the `shared_files/` directory to reset the Filer Server. 
 
 ## Running the Driver
 
@@ -102,7 +102,7 @@ Note that you must be a member of the specified group (or ADMIN) in order to see
  - Enter the name of the file to be uploaded, use full file path eg /Users/csstudent/Documents/file.pdf
  - Enter the new name of the file once it is uploaded
 
-Note that the upload destination defaults to the `shared_files` directory. Otherwise a full path must
+Note that the upload destination defaults to the `shared_files` directory. Otherwise a full path must be specified. 
 
 ## Downloading Files
 
@@ -123,4 +123,3 @@ Note that the download destination defaults to the current directory of `FileCli
 
  - Log into driver
  - Type `disconnect`
- 
