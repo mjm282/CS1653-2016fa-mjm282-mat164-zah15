@@ -22,5 +22,6 @@ T4 - Information Leakage via Passive Monitoring
   - The signed token will prevent any token modification, as the token will have to be sent with the signature to the file server.
   - Immediately sending the token to the file server along with a timestamp assures that tokens being sent can not be replayed
   - Tokens will expire when the session ends or after a set period of time to assure that the token is fresh
+  - Authenticated file server will only accept a token that was timestamped by the server within five minutes of the attempted connection and store the most recent token. If a token older than the most recent is sent, it will not be accepted.
 - Have a fileserver give a SHA256 hash of its public key to identify itself to be verified offline similar to SSH
   - Fulfills protection against threat T3
