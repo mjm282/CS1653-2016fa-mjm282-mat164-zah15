@@ -17,7 +17,7 @@ T4 - Information Leakage via Passive Monitoring
 
 ##Description of Mechanisms
 To establish connection / obtain token
-- User sends intuition message in plain text of their user name and 2048bit RSA public key
+- User sends initial message in plain text of their user name and 2048bit RSA public key
 - Server will reply with user name in plain text, 2048bit RSA public key, salt, time-stamp (for a challenge) encrypted using the users public key
 - The client will see that is meant for them from the user name, verify the time-stamp is within five minutes (to account for network traffic jams)
 - If the time stamp is valid the user will compute the salted hash of the password, then send the user name in plain text and the hashed and salted password, 256bit AES key, and a time stamp encrypted with the servers RSA public key
@@ -32,10 +32,11 @@ To prevent modified token
 To verify file server
 - The user will intimate a connection by sending it the user name and RSA public key
 - The server will send back user name in plain text, the RSA public key and time stamp encrypted with the users public key, and the time stamp the user sent +1 encrypted signed with the server private key (to further prove the servers ID)
-- The user will generate a fingerprint by generating a SHA-256 hash of the servers 2048bit RSA key, and confirm it against a hash sent to them over another form of communication (USPS, email, SMS, BBM, etc)
+- The user will generate a fingerprint by generating a SHA-256 hash of the servers 2048bit RSA key, and confirm it against a hash sent to them over another form of communication (USPS, email, SMS, BBM, etc). The client will decrypt the challenge with the provided public key, and vefiry that it is the time stamp it last sent +1.
 - If the user confirms the fingerprint it will send back it user name in plain text and a AES key and time stamp encrypted with the servers public key
-- The server will confirm it got the key by sending back the user name and the time-stamp encrypted with the AES key
-- If the time stamp is decrypted and send back using the AES key the user will send the user name in plaintext and the token, token signature, and time stamp encrypted using the AES key
+- The server will confirm it got the key by sending back the user name in plain text and the user's challenge time-stamp + 1 encrypted with the AES key
+- If the time stamp is decrypted/valid and send back using the AES key the user will send the user name in plaintext and the token, token signature, and time stamp encrypted using the AES key
+- In this case the user is always sending the current time stamp, and the server sends back the time stamp+1 to verify that the server is decrypting everything properly and not just sending time stamps encrypted wiht the user's public key (since we DO NOT trust the server)
 
 Prevent information leakage
 - In addition to all the initial set up all information will be headed with the user name in plain text, and the file/command and a time stamp encrypted using 256bit AES generate for the file server or group server
