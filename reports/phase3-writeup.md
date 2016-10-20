@@ -48,7 +48,7 @@ To verify file server
     - The client will save the public key hash and alerts the user if the server's key being sent changes
   - Client -> File Server: {C}k<sub>f</sub>
   - File Server -> Client: C
-  - Client -> File Server: {{Token}k<sub>g<sup>-1</sup><sub>}k<sub>cf</sub>, {k<sub>cf</sub>}k<sub>f</sub>
+  - Client -> File Server: {{Token}k<sub>g<sup>-1</sup></sub>}k<sub>cf</sub>, {k<sub>cf</sub>}k<sub>f</sub>
 - In this situation, we verify the user simply through having a signed token, but need to verify the file server. When attempting to connect the server will send its public key, which the user will then hash and verify with some form of offline verification (USPS, email, SMS, BBM, etc.) with the file server's admin. The user will then send a Securely generated random 256-bit BigInteger back to the server, encrypted with the now verified public key of the file server. The file server authenticates itself by sending back the decrypted challenge. The client will then generate a 256-bit AES key and send it to the file server encrypted with the server's public key as well as the signed token recieved from the group server encrypted with the AES secret key.
 
 Prevent information leakage
