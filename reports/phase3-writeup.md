@@ -18,7 +18,7 @@ T4 - Information Leakage via Passive Monitoring
 ##Description of Mechanisms
 To establish connection / obtain token
 - User sends initial message in plain text of their user name and 2048bit RSA public key
-- Server will reply with user name in plain text, 2048bit RSA public key, salt, time-stamp (for a challenge) encrypted using the users public key
+- Server will reply with user name in plain text, 2048bit RSA public key, 256bit salt, time-stamp (for a challenge) encrypted using the users public key
 - The client will see that is meant for them from the user name, verify the time-stamp is within five minutes (to account for network traffic jams)
 - If the time stamp is valid the user will compute the salted hash of the password, then send the user name in plain text and the hashed and salted password, 256bit AES key, and a time stamp encrypted with the servers RSA public key
 - The server will then verify the hashed/salted password, and if accepted send back the user in plain text and the token and a time stamp encrypted using the shared AES key
@@ -30,7 +30,7 @@ To prevent modified token
 - Send the token and the signed hash back using the procedure outlined above
 
 To verify file server
-- The user will intimate a connection by sending it the user name and RSA public key
+- The user will initial a connection by sending it the user name and RSA public key
 - The server will send back user name in plain text, the RSA public key and time stamp encrypted with the users public key, and the time stamp the user sent +1 encrypted signed with the server private key (to further prove the servers ID)
 - The user will generate a fingerprint by generating a SHA-256 hash of the servers 2048bit RSA key, and confirm it against a hash sent to them over another form of communication (USPS, email, SMS, BBM, etc). The client will decrypt the challenge with the provided public key, and vefiry that it is the time stamp it last sent +1.
 - If the user confirms the fingerprint it will send back it user name in plain text and a AES key and time stamp encrypted with the servers public key
