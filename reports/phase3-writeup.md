@@ -42,4 +42,4 @@ Prevent information leakage
 - The client and servers will store the most recent time stamp seen and sent not accept anything older than it when receiving. Some of the confirmations will be sending the time stamp +1 and this will be compared against the time stamp that was sent.
 
 ##Assumptions
-- Client and Server(s) have in sync clocks, using something like NTP ont eh same time server (ex pool.ntp.org)
+- Client and Server(s) have in sync clocks, using something like NTP on the same time server (ex pool.ntp.org)
