@@ -16,12 +16,27 @@ T4 - Information Leakage via Passive Monitoring
 - All data is currently sent to the server/client in plain text. Anyone who has access to the network can run a wireshark type attack and see what is being transferred, making it possible to steal another user’s token or file download/upload. This makes the above attacks, such as token forgery/manipulation, possible.
 
 ##Description of Mechanisms
--  User will use a password to ID themselves, the hash of the password will be generated client side and encrypted before being sent and salted by the server for verification and storage. Sending the password will be encrypted using the server's public key, and also include a challenge to include replay attacks. If the server accepts the password it will use the client's public key to sent back the challenge, token, and an AES key for further communication with the group server.
-- For initial communication with the file server the token and a challenge will be sent encrypted with the file server's public key. If the file server accepts the token it will send back the challenge and an AES key encrypted with the client's public key. The AES key will be used for all further communication, and expire upon the token's expiration.
-- In order to combat the threat of token forgery/modification, we decided to have the group server attach a timestamp to each token and sign the entire token with the server’s private key. The token is then IMMEDIATELY sent from the user to the file server the user wishes to connect to and used for the rest of the session.  The timestamp attached to the token will expire after a set period of time and the group server will generate a new token with a current timestamp to be sent to the user / file server. 
-  - The signed token will prevent any token modification, as the token will have to be sent with the signature to the file server.
-  - Immediately sending the token to the file server along with a timestamp assures that tokens being sent can not be replayed
-  - Tokens will expire when the session ends or after a set period of time to assure that the token is fresh
-  - Authenticated file server will only accept a token that was timestamped by the server within five minutes of the attempted connection and store the most recent token. If a token older than the most recent is sent, it will not be accepted.
-- Have a fileserver give a SHA256 hash of its public key to identify itself to be verified offline similar to SSH
-  - Fulfills protection against threat T3
+To establish connection / obtain token
+- User sends intuition message in plain text of their user name and 2048bit RSA public key
+- Server will reply with user name in plain text, 2048bit RSA public key, salt, time-stamp (for a challenge) encrypted using the users public key
+- The client will see that is meant for them from the user name, verify the time-stamp is within five minutes (to account for network traffic jams)
+- If the time stamp is valid the user will compute the salted hash of the password, then send the user name in plain text and the hashed and salted password, 256bit AES key, and a time stamp encrypted with the servers RSA public key
+- The server will then verify the hashed/salted password, and if accepted send back the user in plain text and the token and a time stamp encrypted using the shared AES key
+
+To prevent modified token
+- Add field for time-stamp to token to ensure we can make it expire
+- Convert token to a byte array and take the SHA 256-bit hash of it
+- Sign the hash of the token with the Servers private key
+- Send the token and the signed hash back
+
+To verify file server
+- The user will intimate a connection by sending it the user name and RSA public key
+- The server will send back user name in plain text and the RSA public key and time stamp encrypted with the users public key
+- The user will generate a fingerprint by generating a SHA-256 hash of the servers 2048bit RSA key, and confirm it against a hash sent to them over another form of communication (USPS, email, SMS, BBM, etc)
+- If the user confirms the fingerprint it will send back it user name in plain text and a AES key and time stamp encrypted with the servers public key
+- The server will confirm it got the key by sending back the user name and the time-stamp encrypted with the AES key
+- If the time stamp is decrypted and send back using the AES key the user will send the user name in plaintext and the token, token signature, and time stamp encrypted using the AES key
+
+Prevent information leakage
+- In addition to all the initial set up all information will be headed with the user name in plain text, and the file/command and a time stamp encrypted using 256bit AES generate for the file server or group server
+- The client and servers will store the most recent time stamp seen and sent not accept anything older than it when receiving. Some of the confirmations will be sending the time stamp +1 and this will be compared against the time stamp that was sent.
