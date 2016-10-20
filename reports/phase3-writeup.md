@@ -31,7 +31,7 @@ To prevent modified token
 
 To verify file server
 - The user will intimate a connection by sending it the user name and RSA public key
-- The server will send back user name in plain text and the RSA public key and time stamp encrypted with the users public key
+- The server will send back user name in plain text, the RSA public key and time stamp encrypted with the users public key, and the time stamp the user sent +1 encrypted signed with the server private key (to further prove the servers ID)
 - The user will generate a fingerprint by generating a SHA-256 hash of the servers 2048bit RSA key, and confirm it against a hash sent to them over another form of communication (USPS, email, SMS, BBM, etc)
 - If the user confirms the fingerprint it will send back it user name in plain text and a AES key and time stamp encrypted with the servers public key
 - The server will confirm it got the key by sending back the user name and the time-stamp encrypted with the AES key
