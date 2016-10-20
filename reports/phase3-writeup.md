@@ -17,11 +17,13 @@ T4 - Information Leakage via Passive Monitoring
 
 ##Description of Mechanisms
 To establish connection / obtain token
-- User sends initial message in plain text of their user name and 2048bit RSA public key
-- Server will reply with user name in plain text, 2048bit RSA public key, 256bit salt, time-stamp (for a challenge) encrypted using the users public key
-- The client will see that is meant for them from the user name, verify the time-stamp is within five minutes (to account for network traffic jams)
-- If the time stamp is valid the user will compute the salted hash of the password, then send the user name in plain text and the hashed and salted password, 256bit AES key, and a time stamp encrypted with the servers RSA public key
-- The server will then verify the hashed/salted password, and if accepted send back the user in plain text and the token and a time stamp encrypted using the shared AES key
+- Upon user creation, an 2048 bit public and private RSA keypair is created and given to the user in a .bin file. Assume the admin creating the account is trusted and puts the keypair on some form of secure media given to the user. The server will store a list of public keys and their correspondence to usernames.
+- The user authentication with the server will go as follows:
+  - Client -> Group Server: Username in plain text
+  - Group Server -> Client: {C}k<sub>c</sub> where C is a randomly generated challenge only used once and k<sub>c</sub> is the user's public key
+  - Client -> Group Server: C 
+  - Group Server -> Client: {k<sub>cs</sub>}k<sub>c</sub>, {{Token}k<sub>s<sup>-1</sup></sub>}k<sub>cs</sub>
+- In this situation, we are using a single challenge to authenticate the user to prevent an attacker from claiming to be a user. The server sends a securely generated 256-bit BigInteger encrypted with the user's public key. The user will then decrypt it with their private key and send back the decrypted challenge. The group server, now having verified the user, will send back a 256-bit AES key encrypted with the user's public key in addition to their token which is signed with the server's private key then encrypted with the AES key.
 
 To prevent modified token
 - Add field for time-stamp to token to ensure we can make it expire
