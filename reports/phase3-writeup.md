@@ -40,3 +40,6 @@ To verify file server
 Prevent information leakage
 - In addition to all the initial set up all information will be headed with the user name in plain text, and the file/command and a time stamp encrypted using 256bit AES generate for the file server or group server
 - The client and servers will store the most recent time stamp seen and sent not accept anything older than it when receiving. Some of the confirmations will be sending the time stamp +1 and this will be compared against the time stamp that was sent.
+
+##Assumptions
+- Client and Server(s) have in sync clocks, using something like NTP ont eh same time server (ex pool.ntp.org)
