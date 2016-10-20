@@ -33,6 +33,7 @@ To establish connection / obtain token
     - It would take at least 1 billion computers 2^34 years to look at less than .01% of all key possibilities
 
 To prevent modified token
+- To allow keys to expire and prevent modification, timestamps are attached to tokens by groupserver
 - Concatenate the information in the Token into one string using string builder
 - Hash the concatenated string using SHA-256 and sign it using the Group servers private 2048bit RSA key
 - Add the signature to the token
@@ -51,8 +52,7 @@ To verify file server
 - In this situation, we verify the user simply through having a signed token, but need to verify the file server. When attempting to connect the server will send its public key, which the user will then hash and verify with some form of offline verification (USPS, email, SMS, BBM, etc.) with the file server's admin. The user will then send a Securely generated random 256-bit BigInteger back to the server, encrypted with the now verified public key of the file server. The file server authenticates itself by sending back the decrypted challenge. The client will then generate a 256-bit AES key and send it to the file server encrypted with the server's public key as well as the signed token recieved from the group server encrypted with the AES secret key.
 
 Prevent information leakage
-- In addition to all the initial set up all information will be headed with the user name in plain text, and the file/command and a time stamp encrypted using 256bit AES generate for the file server or group server
-- The client and servers will store the most recent time stamp seen and sent not accept anything older than it when receiving. Some of the confirmations will be sending the time stamp +1 and this will be compared against the time stamp that was sent.
+- AES key pairs keeps information encrypted throughout the entire communication session so long as session keys are properly distributed. Session keys are not reused and are genereted on connection time after servers are authenticated. See mechanisms above for authentication procedures. 
 
 ##Assumptions
 - Client and Server(s) have in sync clocks, using something like NTP on the same time server (ex pool.ntp.org)
