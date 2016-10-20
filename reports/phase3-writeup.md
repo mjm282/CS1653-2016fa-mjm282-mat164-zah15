@@ -33,10 +33,11 @@ To establish connection / obtain token
     - It would take at least 1 billion computers 2^34 years to look at less than .01% of all key possibilities
 
 To prevent modified token
-- Add field for time-stamp to token to ensure we can make it expire
-- Convert token to a byte array and take the SHA 256-bit hash of it
-- Sign the hash of the token with the Servers private key
-- Send the token and the signed hash back using the procedure outlined above
+- Concatenate the information in the Token into one string using string builder
+- Hash the concatenated string using SHA-256 and sign it using the Group servers private 2048bit RSA key
+- Add the signature to the token
+- The user will be able to concatenate the fields and verify it against the signed string
+
 
 To verify file server
 - Verification of the file server will go as follows:
