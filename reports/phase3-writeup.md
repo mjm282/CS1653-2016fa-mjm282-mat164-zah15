@@ -26,7 +26,7 @@ To establish connection / obtain token
   - Client -> Group Server: Username in plain text
   - Group Server -> Client: {C}k<sub>c</sub> where C is a randomly generated challenge only used once and k<sub>c</sub> is the user's public key
   - Client -> Group Server: C 
-  - Group Server -> Client: {k<sub>cs</sub>}k<sub>c</sub>, {{Token}k<sub>s<sup>-1</sup></sub>}k<sub>cs</sub>
+  - Group Server -> Client: {k<sub>cg</sub>}k<sub>c</sub>, {{Token}k<sub>g<sup>-1</sup></sub>}k<sub>cg</sub>
 - In this situation, we are using a single challenge to authenticate the user to prevent an attacker from claiming to be a user. The server sends a securely generated (using SecureRandom) 256-bit BigInteger encrypted with the user's public key. The user will then decrypt it with their private key and send back the decrypted challenge. The group server, now having verified the user, will send back a 256-bit AES key encrypted with the user's public key in addition to their token which is signed with the server's private key then encrypted with the AES key.
   - Reasons for keysize of 256: 
     - [256 is Government standard for Top Secret information] (http://csrc.nist.gov/groups/STM/cmvp/documents/CNSS15FS.pdf)
@@ -39,13 +39,15 @@ To prevent modified token
 - Send the token and the signed hash back using the procedure outlined above
 
 To verify file server
-- The user will initial a connection by sending it the user name and RSA public key
-- The server will send back user name in plain text, the RSA public key and time stamp encrypted with the users public key, and the time stamp the user sent +1 encrypted signed with the server private key (to further prove the servers ID)
-- The user will generate a fingerprint by generating a SHA-256 hash of the servers 2048bit RSA key, and confirm it against a hash sent to them over another form of communication (USPS, email, SMS, BBM, etc). The client will decrypt the challenge with the provided public key, and vefiry that it is the time stamp it last sent +1.
-- If the user confirms the fingerprint it will send back it user name in plain text and a AES key and time stamp encrypted with the servers public key
-- The server will confirm it got the key by sending back the user name in plain text and the user's challenge time-stamp + 1 encrypted with the AES key
-- If the time stamp is decrypted/valid and send back using the AES key the user will send the user name in plaintext and the token, token signature, and time stamp encrypted using the AES key
-- In this case the user is always sending the current time stamp, and the server sends back the time stamp+1 to verify that the server is decrypting everything properly and not just sending time stamps encrypted wiht the user's public key (since we DO NOT trust the server)
+- Verification of the file server will go as follows:
+  - The client opens a socket connection with the file server
+  - File Server -> Client: k<sub>f</sub>
+    - The client computes the hash of the server's public key and verifies it against a known hash securely given to the user by the file server's administrator
+    - The client will save the public key hash and alerts the user if the server's key being sent changes
+  - Client -> File Server: {C}k<sub>f</sub>
+  - File Server -> Client: C
+  - Client -> File Server: {{Token}k<sub>g<sup>-1</sup><sub>}k<sub>cf</sub>, {k<sub>cf</sub>}k<sub>f</sub>
+- In this situation, we verify the user simply through having a signed token, but need to verify the file server. When attempting to connect the server will send its public key, which the user will then hash and verify with some form of offline verification (USPS, email, SMS, BBM, etc.) with the file server's admin. The user will then send a Securely generated random 256-bit BigInteger back to the server, encrypted with the now verified public key of the file server. The file server authenticates itself by sending back the decrypted challenge. The client will then generate a 256-bit AES key and send it to the file server encrypted with the server's public key as well as the signed token recieved from the group server encrypted with the AES secret key.
 
 Prevent information leakage
 - In addition to all the initial set up all information will be headed with the user name in plain text, and the file/command and a time stamp encrypted using 256bit AES generate for the file server or group server
