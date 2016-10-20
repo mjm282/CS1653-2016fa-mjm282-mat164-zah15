@@ -23,7 +23,7 @@ To establish connection / obtain token
   - Group Server -> Client: {C}k<sub>c</sub> where C is a randomly generated challenge only used once and k<sub>c</sub> is the user's public key
   - Client -> Group Server: C 
   - Group Server -> Client: {k<sub>cs</sub>}k<sub>c</sub>, {{Token}k<sub>s<sup>-1</sup></sub>}k<sub>cs</sub>
-- In this situation, we are using a single challenge to authenticate the user to prevent an attacker from claiming to be a user. The server sends a securely generated 256-bit BigInteger encrypted with the user's public key. The user will then decrypt it with their private key and send back the decrypted challenge. The group server, now having verified the user, will send back a 256-bit AES key encrypted with the user's public key in addition to their token which is signed with the server's private key then encrypted with the AES key.
+- In this situation, we are using a single challenge to authenticate the user to prevent an attacker from claiming to be a user. The server sends a securely generated (using SecureRandom) 256-bit BigInteger encrypted with the user's public key. The user will then decrypt it with their private key and send back the decrypted challenge. The group server, now having verified the user, will send back a 256-bit AES key encrypted with the user's public key in addition to their token which is signed with the server's private key then encrypted with the AES key.
 
 To prevent modified token
 - Add field for time-stamp to token to ensure we can make it expire
