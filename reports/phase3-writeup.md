@@ -18,12 +18,19 @@ T4 - Information Leakage via Passive Monitoring
 ##Description of Mechanisms
 To establish connection / obtain token
 - Upon user creation, an 2048 bit public and private RSA keypair is created and given to the user in a .bin file. Assume the admin creating the account is trusted and puts the keypair on some form of secure media given to the user. The server will store a list of public keys and their correspondence to usernames.
+  - Reasons for keysize of 2048: 
+    - Uses less CPU
+    - Supported on most hardware
+    - Key lifespan offered by 2048 bits is sufficient for the systems intents and purposed
 - The user authentication with the server will go as follows:
   - Client -> Group Server: Username in plain text
   - Group Server -> Client: {C}k<sub>c</sub> where C is a randomly generated challenge only used once and k<sub>c</sub> is the user's public key
   - Client -> Group Server: C 
   - Group Server -> Client: {k<sub>cs</sub>}k<sub>c</sub>, {{Token}k<sub>s<sup>-1</sup></sub>}k<sub>cs</sub>
 - In this situation, we are using a single challenge to authenticate the user to prevent an attacker from claiming to be a user. The server sends a securely generated (using SecureRandom) 256-bit BigInteger encrypted with the user's public key. The user will then decrypt it with their private key and send back the decrypted challenge. The group server, now having verified the user, will send back a 256-bit AES key encrypted with the user's public key in addition to their token which is signed with the server's private key then encrypted with the AES key.
+  - Reasons for keysize of 256: 
+    - [256 is Government standard for Top Secret information] (http://csrc.nist.gov/groups/STM/cmvp/documents/CNSS15FS.pdf)
+    - It would take at least 1 billion computers 2^34 years to look at less than .01% of all key possibilities
 
 To prevent modified token
 - Add field for time-stamp to token to ensure we can make it expire
