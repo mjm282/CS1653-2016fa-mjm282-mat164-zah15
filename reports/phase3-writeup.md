@@ -27,7 +27,7 @@ To prevent modified token
 - Add field for time-stamp to token to ensure we can make it expire
 - Convert token to a byte array and take the SHA 256-bit hash of it
 - Sign the hash of the token with the Servers private key
-- Send the token and the signed hash back
+- Send the token and the signed hash back using the procedure outlined above
 
 To verify file server
 - The user will intimate a connection by sending it the user name and RSA public key
