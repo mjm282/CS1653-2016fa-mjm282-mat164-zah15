@@ -58,6 +58,13 @@ public class driver
 		System.out.println("Please enter your username");
 		username = scan.next();
 		yourToken = gClient.getToken(username);
+		if(yourToken == null)
+		{
+			System.out.println("ERROR: Unable to retrieve token, make sure your username is correct!");
+			gClient.disconnect();
+			fClient.disconnect();
+			System.exit(0);
+		}
 		System.out.println("Your Groups: " + yourToken.getGroups());
 		System.out.println("Type 'help' for a list of commands");
 		while(gClient.isConnected())

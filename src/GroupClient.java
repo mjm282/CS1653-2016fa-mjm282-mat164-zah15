@@ -3,6 +3,10 @@
 import java.util.ArrayList;
 import java.util.List;
 import java.io.ObjectInputStream;
+import javax.crypto.KeyGenerator;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import org.bouncycastle.*;
 
 public class GroupClient extends Client implements GroupClientInterface
 {
@@ -27,7 +31,6 @@ public class GroupClient extends Client implements GroupClientInterface
 				//If there is a token in the Envelope, return it
 				ArrayList<Object> temp = null;
 				temp = response.getObjContents();
-
 				if(temp.size() == 1)
 				{
 					token = (UserToken)temp.get(0);

@@ -4,8 +4,7 @@
  */
 
 /*
- * TODO: This file will need to be modified to save state related to
- *       groups that are created in the system
+ * PHASE 3 TODO: Add state saving regarding the server's keypair as well as adding public keys to each user's UserList entry
  *
  */
 
@@ -13,6 +12,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.io.*;
 import java.util.*;
+import java.security.*;
+import org.bouncycastle.*;
 
 
 public class GroupServer extends Server
@@ -21,6 +22,7 @@ public class GroupServer extends Server
 	public static final int SERVER_PORT = 8765;
 	public UserList userList;
 	public GroupList groupList;
+	private KeyPair servPair;
 
 	public GroupServer() {
 		super(SERVER_PORT, "ALPHA");
@@ -36,18 +38,82 @@ public class GroupServer extends Server
 	public void start() {
 		// Overwrote server.start() because if no user file exists, initial admin account needs to be created
 
+		//sets security provider to bouncycastle
+		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+		
 		String userFile = "UserList.bin";
 		String groupFile = "GroupList.bin";
+		//kind of insecure, but assuming the server is trustworthy this is fine right now
+		String keyFile = "ServerKeys.bin"; //Stores the server's keypair
 
 		Scanner console = new Scanner(System.in);
 		ObjectInputStream userStream;
 		ObjectInputStream groupStream;
+		ObjectInputStream keyStream; //input stream for RSA keypair
 		String username;
 
 		//This runs a thread that saves the lists on program exit
 		Runtime runtime = Runtime.getRuntime();
 		runtime.addShutdownHook(new ShutDownListener(this));
 
+		//open keyFile to get server's keypair
+		try
+		{
+			FileInputStream fis = new FileInputStream(keyFile);
+			keyStream = new ObjectInputStream(fis);
+			servPair = (KeyPair)keyStream.readObject();
+		}
+		catch(FileNotFoundException e)
+		{
+			System.out.println("GroupServer RSA Key pair does not exist, creating servPair...");
+			try
+			{			
+				KeyPairGenerator sKeyGen = KeyPairGenerator.getInstance("RSA", "BC");
+				sKeyGen.initialize(2048);
+				servPair = sKeyGen.generateKeyPair();
+				
+				try
+				{
+					//writes the keypair for storage
+					ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(keyFile));					
+					keyOutStream.writeObject(servPair);
+				}
+				catch(FileNotFoundException ee)
+				{
+					System.err.println(ee.getMessage());
+					ee.printStackTrace(System.err);
+				}
+				catch(IOException ee)
+				{	
+					System.err.println(ee.getMessage());
+					ee.printStackTrace(System.err);
+				}
+			}
+			catch(NoSuchAlgorithmException BCErr)
+			{
+				System.err.println("Error: " + BCErr.getMessage());
+				BCErr.printStackTrace(System.err);
+				System.exit(-1);
+			}
+			catch(NoSuchProviderException BCErr)
+			{
+				System.err.println("Error: " + BCErr.getMessage());
+				BCErr.printStackTrace(System.err);
+				System.exit(-1);
+			}
+		}
+		catch(IOException e)
+		{
+			System.out.println("Error reading from ServerKeys file");
+			System.exit(-1);
+		}
+		catch(ClassNotFoundException e)
+		{
+			System.out.println("Error reading from ServerKeys file");
+			System.exit(-1);
+		}
+		
+		
 		//Open user file to get user list
 		try
 		{
@@ -65,7 +131,27 @@ public class GroupServer extends Server
 			//Create a new list, add current user to the ADMIN group. They now own the ADMIN group.
 			userList = new UserList();
 			groupList = new GroupList();
-			userList.addUser(username);
+			
+			//generates the admin's keypair (this will likely be temporary) and saves it to a separate file for safekeeping, adds the public key to the admin's userList entry
+			try
+			{
+				KeyPairGenerator adminKeyGen = KeyPairGenerator.getInstance("RSA", "BC");
+				adminKeyGen.initialize(2048);
+				KeyPair adminPair = adminKeyGen.generateKeyPair();
+				userList.addUser(username, adminPair.getPublic());
+			}
+			catch(NoSuchAlgorithmException BCErr)
+			{
+				System.err.println("Error: " + BCErr.getMessage());
+				BCErr.printStackTrace(System.err);
+				System.exit(-1);
+			}
+			catch(NoSuchProviderException BCErr)
+			{
+				System.err.println("Error: " + BCErr.getMessage());
+				BCErr.printStackTrace(System.err);
+				System.exit(-1);
+			}
 
 			groupList.addGroup("ADMIN");
 			groupList.addGroupUser("ADMIN", username);
