@@ -5,6 +5,7 @@ import java.lang.Thread;
 import java.net.Socket;
 import java.io.*;
 import java.util.*;
+import java.security.*;
 
 public class GroupThread extends Thread 
 {
@@ -46,11 +47,18 @@ public class GroupThread extends Thread
 					else
 					{
 						UserToken yourToken = createToken(username); //Create a token
-						
+						if(yourToken != null)
+						{
 						//Respond to the client. On error, the client will receive a null token
 						response = new Envelope("OK");
 						response.addObject(yourToken);
 						output.writeObject(response);
+						}
+						else
+						{
+							response = new Envelope("FAIL");
+							output.writeObject(response);
+						}
 					}
 				}
 				
@@ -287,6 +295,9 @@ public class GroupThread extends Thread
 	//Method to create a user
 	private boolean createUser(String username, UserToken yourToken)
 	{
+		//sets the provider, will need to generate keypair for the user to use with this server
+		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+		
 		String requester = yourToken.getSubject();
 		
 		//Check if requester exists
@@ -304,7 +315,27 @@ public class GroupThread extends Thread
 				}
 				else
 				{
-					my_gs.userList.addUser(username);
+					//generates a keypair for the user and saves it to a file to be given to the user and kept on a flash drive/smartcard/whatever
+					//assumes that the admin is trusted, gives this file to the user via OFFLINE means
+					//current implementation will be crude and temporary maybe?
+					String outPath = username + ".bin";
+					try
+					{
+						KeyPairGenerator uKeyGen = KeyPairGenerator.getInstance("RSA", "BC");
+						uKeyGen.initialize(2048);
+						KeyPair uKeyPair = uKeyGen.generateKeyPair();
+						
+						ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(outPath));					
+						keyOutStream.writeObject(uKeyPair);
+
+						my_gs.userList.addUser(username, uKeyPair.getPublic());
+					}
+					catch(Exception e)
+					{
+						System.err.println(e.getMessage());
+						e.printStackTrace(System.err);
+						return false;
+					}
 					return true;
 				}
 			}
@@ -533,26 +564,35 @@ public class GroupThread extends Thread
 			//checks if you're an admin or an owner
 			if(temp.contains("ADMIN") || my_gs.groupList.checkOwner(groupName, requester))
 			{ 
-				if(my_gs.groupList.checkGroup(groupName))
+				//does the user to be added exist
+				if(my_gs.userList.checkUser(username))
 				{
-					//is the user already in the group?
-					if(my_gs.groupList.checkMember(groupName, username))
+					
+					if(my_gs.groupList.checkGroup(groupName))
 					{
-						return false; //user already in the group
+						//is the user already in the group?
+						if(my_gs.groupList.checkMember(groupName, username))
+						{
+							return false; //user already in the group
+						}
+						else
+						{
+							//adds user to groupList
+							my_gs.groupList.addGroupUser(groupName, username);
+							//adds group to user's list of groups
+							my_gs.userList.addGroup(username, groupName);
+							
+							return true;
+						}
 					}
 					else
 					{
-						//adds user to groupList
-						my_gs.groupList.addGroupUser(groupName, username);
-						//adds group to user's list of groups
-						my_gs.userList.addGroup(username, groupName);
-						
-						return true;
+						return false; //group does not exist
 					}
 				}
 				else
 				{
-					return false; //group does not exist
+					return false; //user does not exist
 				}
 			}
 			else

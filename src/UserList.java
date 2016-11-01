@@ -1,6 +1,7 @@
 /* This list represents the users on the server */
 import java.util.*;
-
+import org.bouncycastle.*;
+import java.security.*;
 
 	public class UserList implements java.io.Serializable {
 	
@@ -10,9 +11,9 @@ import java.util.*;
 		private static final long serialVersionUID = 7600343803563417992L;
 		private Hashtable<String, User> list = new Hashtable<String, User>();
 		
-		public synchronized void addUser(String username)
+		public synchronized void addUser(String username, PublicKey k)
 		{
-			User newUser = new User();
+			User newUser = new User(k);
 			list.put(username, newUser);
 		}
 		
@@ -72,11 +73,24 @@ import java.util.*;
 		private static final long serialVersionUID = -6699986336399821598L;
 		private ArrayList<String> groups;
 		private ArrayList<String> ownership;
+		private PublicKey pKey;
 		
-		public User()
+		public User(PublicKey key)
 		{
 			groups = new ArrayList<String>();
 			ownership = new ArrayList<String>();
+			pKey = key;
+		}
+		
+		//making setKey in case public keys need to be changed
+		public void setKey(PublicKey key)
+		{
+			pKey = key;
+		}
+		
+		public PublicKey getKey()
+		{
+			return pKey;
 		}
 		
 		public ArrayList<String> getGroups()
