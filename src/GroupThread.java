@@ -5,6 +5,10 @@ import java.lang.Thread;
 import java.net.Socket;
 import java.io.*;
 import java.util.*;
+import org.bouncycastle.*;
+import javax.crypto.KeyGenerator;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
 import java.security.*;
 
 public class GroupThread extends Thread 
@@ -20,6 +24,9 @@ public class GroupThread extends Thread
 	
 	public void run()
 	{
+		//The shared AES key for the current session
+		Key sessionKey;
+		
 		boolean proceed = true;
 
 		try
@@ -46,6 +53,18 @@ public class GroupThread extends Thread
 					}
 					else
 					{
+						//TODO: client-server authentication
+						//Look up the user in UserList by their username, get their public key
+						//Generate a random BigInteger challenge
+						//Encrypt it with their public key, send it to the user
+						//Wait for a response, verify the challenge response is correct
+						//Decrypt the second challenge sent from the user, send it back encrypted with their public key
+						//Generate an AES secret key and set the value of sessionKey as such
+						//In addition to the above, just simply do exactly what's below for creating tokens
+							//(I'll sort out timestamping within Token.java)
+						//Sign the token and encrypt it with sessionKey, send that
+						//We're also sending a hash right? also do that.
+						
 						UserToken yourToken = createToken(username); //Create a token
 						if(yourToken != null)
 						{

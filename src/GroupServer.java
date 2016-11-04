@@ -77,6 +77,7 @@ public class GroupServer extends Server
 					//writes the keypair for storage
 					ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(keyFile));					
 					keyOutStream.writeObject(servPair);
+					keyOutStream.close();
 				}
 				catch(FileNotFoundException ee)
 				{
@@ -139,6 +140,13 @@ public class GroupServer extends Server
 				adminKeyGen.initialize(2048);
 				KeyPair adminPair = adminKeyGen.generateKeyPair();
 				userList.addUser(username, adminPair.getPublic());
+				
+				//store's admin's keypair to disk
+				String admPath = username + ".bin";
+				//writes the keypair for storage
+				ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(admPath));					
+				keyOutStream.writeObject(servPair);
+				keyOutStream.close();
 			}
 			catch(NoSuchAlgorithmException BCErr)
 			{
@@ -152,6 +160,19 @@ public class GroupServer extends Server
 				BCErr.printStackTrace(System.err);
 				System.exit(-1);
 			}
+			catch(FileNotFoundException BCErr)
+			{
+				System.err.println("Error: " + BCErr.getMessage());
+				BCErr.printStackTrace(System.err);
+				System.exit(-1);
+			}
+			catch(IOException BCErr)
+			{
+				System.err.println("Error: " + BCErr.getMessage());
+				BCErr.printStackTrace(System.err);
+				System.exit(-1);
+			}
+			
 
 			groupList.addGroup("ADMIN");
 			groupList.addGroupUser("ADMIN", username);

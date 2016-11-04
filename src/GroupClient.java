@@ -7,13 +7,29 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import org.bouncycastle.*;
+import java.security.*;
 
 public class GroupClient extends Client implements GroupClientInterface
 {
+	//AES key defined for the connection session with the Group Server
+	//Not even sure if it will work this way but it's worth a shot
+	private Key sessionKey;
+	
 	 public UserToken getToken(String username)
 	 {
 		try
-		{
+		{	
+			//TODO: Client-server authentication
+			//send "GET" message with username
+			//wait for a response from the server
+			//decrypt challenge with private key
+			//send message with decrypted challenge, re-encrypted with server public key AND a new generated challenge, also encrypted with server public key
+			//check outcome of challenge response, if it's valid then also set sessionKey to recieved AES key
+			//Were we doing some hash check here as well? Like checking a fingerpring of the token? if so do that as well
+			//return the signed, encrypted, token
+			
+			//assume that we know the server's public key this whole time and implement some way to do so in our program that is somewhat secure
+			
 			UserToken token = null;
 			Envelope message = null, response = null;
 
@@ -178,10 +194,11 @@ public class GroupClient extends Client implements GroupClientInterface
 			 output.writeObject(message);
 
 			 response = (Envelope)input.readObject();
-
+			
 			 //If server indicates success, return the member list
 			 if(response.getMessage().equals("OK"))
 			 {
+				List<String> ret = new ArrayList<String>((List<String>)response.getObjContents().get(0));
 				return (List<String>)response.getObjContents().get(0); //This cast creates compiler warnings. Sorry.
 			 }
 
@@ -254,7 +271,10 @@ public class GroupClient extends Client implements GroupClientInterface
 			}
 	 }
 
-	//OPTIONAL: Create addOwnerToGroup
+	 //TODO implement encryption and decryption for message passing
+	 //Would be possibly easier to make 4 methods, two for enc/dec in AES and two for enc/dec in RSA
+	 
+	//OPTIONAL from Phase 2: Create addOwnerToGroup
 	
-	//OPTIONAL: Create deleteOwnerFromGroup
+	//OPTIONAL from Phase 2: Create deleteOwnerFromGroup
 }
