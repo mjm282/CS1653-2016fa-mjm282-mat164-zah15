@@ -100,18 +100,30 @@ public class GroupThread extends Thread
 								sessionKey = genSessionKey();
 								// Need to encrypt the session key
 								byte[] rsaSessionKey = encryptAESKeyRSA(sessionKey, userKey); // Add to message
-								// Encrypt the token
-								// How do I serilize this?
+								// Serialize the Token
+								Serializer byteTok = new Serializer();
+								byte[] serTok = byteTok.serialize(yourToken);
+								// Now we need to encrypt those byte[](s)
+								// Make an IV
+								SecureRandom ivRand = new SecureRandom();
+								byte[] ivBytes = new byte[16];
+								ivRand.nextBytes(ivBytes);
+								IvParameterSpec IV = new IvParameterSpec(ivBytes);
+								// And encrypt the Token!
+								byte[] aesTok = encryptAES(serTok, sessionKey, IV);
+								// Now we just have to send it all back!
 
 								//Respond to the client. On error, the client will receive a null token
 								// Restructure with challannge
 								response = new Envelope("OK");
 								// Add challenge
-								response.addObject(c2);
+								response.addObject(c2); //0
 								// Add AES sessionKey (encrypted)
-								response.addObject(rsaSessionKey);
-								// Need to encrypt that token!
-								response.addObject(yourToken);
+								response.addObject(rsaSessionKey);  //1
+								// Add encrypted token
+								response.addObject(aesTok); //2
+								// And the IV would help in decryption
+								response.addObject(IV); //3
 								output.writeObject(response);
 							}
 							else
@@ -751,5 +763,13 @@ public class GroupThread extends Thread
 		generator.init(192);
 		Key myAESkey = generator.generateKey();
 		return myAESkey;
+	}
+
+	public static byte[] encryptAES(byte[] plainText, Key AESkey, IvParameterSpec IV) throws Exception
+	{
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		aesCipher.init(Cipher.ENCRYPT_MODE, AESkey, IV);
+		byte[] byteCipherText = aesCipher.doFinal(plainText);
+		return byteCipherText;
 	}
 }
