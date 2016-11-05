@@ -44,4 +44,5 @@ public interface UserToken extends java.io.Serializable
      */
     public List<String> getGroups();
 
+    public String getTimestamp();
 }   //-- end interface UserToken
