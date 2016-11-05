@@ -91,10 +91,13 @@ public class GroupThread extends Thread
 							// Decrypt CipherText
 							BigInteger c2 = decryptBIRSA(ciph2, my_gs.getPrivateKey());
 							// Switch to User's public key
-							byte[] cipherBI2 = encryptChalRSA(c2, userKey);
+							byte[] cipherBI2 = encryptChalRSA(c2, userKey); // Add to message
 							// Need to generate that AES key!
-							sessionKey = genSessionKey();  // Function to generate sessionKey
+							sessionKey = genSessionKey();
 							// Need to encrypt the session key
+							byte[] rsaSessionKey = encryptAESKeyRSA(sessionKey, userKey); // Add to message
+							// Need to get token and sign it
+
 
 							// And send it on back
 							response = new Envelope("OK");
@@ -723,11 +726,19 @@ public class GroupThread extends Thread
   	return byteCipherText;
   }
 
+	public byte[] encryptAESKeyRSA(Key aesKey, Key pubRSAkey) throws Exception
+	{
+		Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+  	rsaCipher.init(Cipher.ENCRYPT_MODE, pubRSAkey);
+  	byte[] byteCipherText = rsaCipher.doFinal(aesKey.getEncoded());
+  	return byteCipherText;
+	}
+
   public BigInteger decryptBIRSA(byte[] cipherText, Key privRSAkey) throws Exception
   {
-  	Cipher bfCipher = Cipher.getInstance("RSA", "BC");
-  	bfCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
-  	byte[] byteText = bfCipher.doFinal(cipherText);
+  	Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+  	rsaCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
+  	byte[] byteText = rsaCipher.doFinal(cipherText);
 		BigInteger dcBI = new BigInteger(byteText);
   	return dcBI;
   }
