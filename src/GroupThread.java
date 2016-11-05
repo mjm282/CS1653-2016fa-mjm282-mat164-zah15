@@ -1,5 +1,5 @@
 /* This thread does all the work. It communicates with the client through Envelopes.
- * 
+ *
  */
 import java.lang.Thread;
 import java.net.Socket;
@@ -10,23 +10,24 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import java.security.*;
+import java.math.BigInteger;
 
-public class GroupThread extends Thread 
+public class GroupThread extends Thread
 {
 	private final Socket socket;
 	private GroupServer my_gs;
-	
+
 	public GroupThread(Socket _socket, GroupServer _gs)
 	{
 		socket = _socket;
 		my_gs = _gs;
 	}
-	
+
 	public void run()
 	{
 		//The shared AES key for the current session
 		Key sessionKey;
-		
+
 		boolean proceed = true;
 
 		try
@@ -35,13 +36,13 @@ public class GroupThread extends Thread
 			System.out.println("*** New connection from " + socket.getInetAddress() + ":" + socket.getPort() + "***");
 			final ObjectInputStream input = new ObjectInputStream(socket.getInputStream());
 			final ObjectOutputStream output = new ObjectOutputStream(socket.getOutputStream());
-			
+
 			do
 			{
 				Envelope message = (Envelope)input.readObject();
 				System.out.println("Request received: " + message.getMessage());
 				Envelope response;
-				
+
 				if(message.getMessage().equals("GET"))//Client wants a token
 				{
 					String username = (String)message.getObjContents().get(0); //Get the username
@@ -54,8 +55,8 @@ public class GroupThread extends Thread
 					else
 					{
 						//TODO: client-server authentication
-						//Look up the user in UserList by their username, get their public key
-						//Generate a random BigInteger challenge
+						//Look up the user in UserList by their username, get their public key ✅
+						//Generate a random BigInteger challenge ✅
 						//Encrypt it with their public key, send it to the user
 						//Wait for a response, verify the challenge response is correct
 						//Decrypt the second challenge sent from the user, send it back encrypted with their public key
@@ -64,7 +65,21 @@ public class GroupThread extends Thread
 							//(I'll sort out timestamping within Token.java)
 						//Sign the token and encrypt it with sessionKey, send that
 						//We're also sending a hash right? also do that.
-						
+
+						// Start of Turley Doing things
+						// Look up user's public key
+						PublicKey userKey = my_gs.userList.getUserKey(username);
+						// Create BigInteger challenge
+						// We need it to be random
+						Random chalRand = new Random();
+						// Now create the BigInteger
+						BigInteger chal = new BigInteger(256, chalRand);
+						// Now Encrypt that ish
+
+
+
+						// End of Turley doing things
+
 						UserToken yourToken = createToken(username); //Create a token
 						if(yourToken != null)
 						{
@@ -80,7 +95,7 @@ public class GroupThread extends Thread
 						}
 					}
 				}
-				
+
 				else if(message.getMessage().equals("CUSER")) //Client wants to create a user
 				{
 					if(message.getObjContents().size() < 2)
@@ -90,14 +105,14 @@ public class GroupThread extends Thread
 					else
 					{
 						response = new Envelope("FAIL");
-						
+
 						if(message.getObjContents().get(0) != null)
 						{
 							if(message.getObjContents().get(1) != null)
 							{
 								String username = (String)message.getObjContents().get(0); //Extract the username
 								UserToken yourToken = (UserToken)message.getObjContents().get(1); //Extract the token
-								
+
 								if(createUser(username, yourToken))
 								{
 									response = new Envelope("OK"); //Success
@@ -116,14 +131,14 @@ public class GroupThread extends Thread
 					else
 					{
 						response = new Envelope("FAIL");
-						
+
 						if(message.getObjContents().get(0) != null)
 						{
 							if(message.getObjContents().get(1) != null)
 							{
 								String username = (String)message.getObjContents().get(0); //Extract the username
 								UserToken yourToken = (UserToken)message.getObjContents().get(1); //Extract the token
-								
+
 								if(deleteUser(username, yourToken))
 								{
 									response = new Envelope("OK"); //Success
@@ -142,14 +157,14 @@ public class GroupThread extends Thread
 					else
 					{
 						response = new Envelope("FAIL");
-						
+
 						if(message.getObjContents().get(0) != null)
 						{
 							if(message.getObjContents().get(1) != null)
 							{
 								String groupName = (String)message.getObjContents().get(0);
 								UserToken yourToken = (UserToken)message.getObjContents().get(1);
-								
+
 								if(createGroup(groupName, yourToken))
 								{
 									response = new Envelope("OK");
@@ -157,7 +172,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
-					
+
 					output.writeObject(response);
 				}
 				else if(message.getMessage().equals("DGROUP")) //Client wants to delete a group
@@ -169,14 +184,14 @@ public class GroupThread extends Thread
 					else
 					{
 						response = new Envelope("FAIL");
-						
+
 						if(message.getObjContents().get(0) != null)
 						{
 							if(message.getObjContents().get(1) != null)
 							{
 								String groupName = (String)message.getObjContents().get(0);
 								UserToken yourToken = (UserToken)message.getObjContents().get(1);
-								
+
 								if(deleteGroup(groupName, yourToken))
 								{
 									response = new Envelope("OK");
@@ -195,14 +210,14 @@ public class GroupThread extends Thread
 					else
 					{
 						response = new Envelope("FAIL");
-						
+
 						if(message.getObjContents().get(0) != null)
 						{
 							if(message.getObjContents().get(1) != null)
 							{
 								String groupName = (String)message.getObjContents().get(0);
 								UserToken yourToken = (UserToken)message.getObjContents().get(1);
-								
+
 								List<String> memberList = listMembers(groupName, yourToken);
 								if(memberList != null)
 								{
@@ -223,7 +238,7 @@ public class GroupThread extends Thread
 					else
 					{
 						response = new Envelope("FAIL");
-						
+
 						if(message.getObjContents().get(0) != null)
 						{
 							if(message.getObjContents().get(1) != null)
@@ -233,7 +248,7 @@ public class GroupThread extends Thread
 									String username = (String)message.getObjContents().get(0);
 									String groupName = (String)message.getObjContents().get(1);
 									UserToken yourToken = (UserToken)message.getObjContents().get(2);
-									
+
 									if(addUserToGroup(username, groupName, yourToken))
 									{
 										response = new Envelope("OK");
@@ -253,7 +268,7 @@ public class GroupThread extends Thread
 					else
 					{
 						response = new Envelope("FAIL");
-						
+
 						if(message.getObjContents().get(0) != null)
 						{
 							if(message.getObjContents().get(1) != null)
@@ -263,12 +278,12 @@ public class GroupThread extends Thread
 									String username = (String)message.getObjContents().get(0);
 									String groupName = (String)message.getObjContents().get(1);
 									UserToken yourToken = (UserToken)message.getObjContents().get(2);
-									
+
 									if(removeUserFromGroup(username, groupName, yourToken))
 									{
 										response = new Envelope("OK");
 									}
-		
+
 								}
 							}
 						}
@@ -285,7 +300,7 @@ public class GroupThread extends Thread
 					response = new Envelope("FAIL"); //Server does not understand client request
 					output.writeObject(response);
 				}
-			}while(proceed);	
+			}while(proceed);
 		}
 		catch(Exception e)
 		{
@@ -293,9 +308,9 @@ public class GroupThread extends Thread
 			e.printStackTrace(System.err);
 		}
 	}
-	
+
 	//Method to create tokens
-	private UserToken createToken(String username) 
+	private UserToken createToken(String username)
 	{
 		//Check that user exists
 		if(my_gs.userList.checkUser(username))
@@ -309,16 +324,16 @@ public class GroupThread extends Thread
 			return null;
 		}
 	}
-	
-	
+
+
 	//Method to create a user
 	private boolean createUser(String username, UserToken yourToken)
 	{
 		//sets the provider, will need to generate keypair for the user to use with this server
 		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-		
+
 		String requester = yourToken.getSubject();
-		
+
 		//Check if requester exists
 		if(my_gs.userList.checkUser(requester))
 		{
@@ -343,8 +358,8 @@ public class GroupThread extends Thread
 						KeyPairGenerator uKeyGen = KeyPairGenerator.getInstance("RSA", "BC");
 						uKeyGen.initialize(2048);
 						KeyPair uKeyPair = uKeyGen.generateKeyPair();
-						
-						ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(outPath));					
+
+						ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(outPath));
 						keyOutStream.writeObject(uKeyPair);
 
 						my_gs.userList.addUser(username, uKeyPair.getPublic());
@@ -368,12 +383,12 @@ public class GroupThread extends Thread
 			return false; //requester does not exist
 		}
 	}
-	
+
 	//Method to delete a user
 	private boolean deleteUser(String username, UserToken yourToken)
 	{
 		String requester = yourToken.getSubject();
-		
+
 		//Does requester exist?
 		if(my_gs.userList.checkUser(requester))
 		{
@@ -386,44 +401,44 @@ public class GroupThread extends Thread
 				{
 					//User needs deleted from the groups they belong
 					ArrayList<String> deleteFromGroups = new ArrayList<String>();
-					
+
 					//This will produce a hard copy of the list of groups this user belongs
 					for(int index = 0; index < my_gs.userList.getUserGroups(username).size(); index++)
 					{
 						deleteFromGroups.add(my_gs.userList.getUserGroups(username).get(index));
 					}
-					
+
 					//Removes user from groups they belong in
 					for(int index = 0; index< deleteFromGroups.size(); index++)
 					{
 						removeUserFromGroup(username, deleteFromGroups.get(index), yourToken);
 					}
-					
+
 					//If groups are owned, they must be deleted
 					ArrayList<String> deleteOwnedGroup = new ArrayList<String>();
-					
+
 					//Make a hard copy of the user's ownership list
 					for(int index = 0; index < my_gs.userList.getUserOwnership(username).size(); index++)
 					{
 						deleteOwnedGroup.add(my_gs.userList.getUserOwnership(username).get(index));
 					}
-					
+
 					//Delete owned groups
 					for(int index = 0; index < deleteOwnedGroup.size(); index++)
 					{
 						//Use the delete group method. Token must be created for this action
 						deleteGroup(deleteOwnedGroup.get(index), new Token(my_gs.name, username, deleteOwnedGroup));
 					}
-					
+
 					//Delete the user from the user list
 					my_gs.userList.deleteUser(username);
-					
-					return true;	
+
+					return true;
 				}
 				else
 				{
 					return false; //User does not exist
-					
+
 				}
 			}
 			else
@@ -436,14 +451,14 @@ public class GroupThread extends Thread
 			return false; //requester does not exist
 		}
 	}
-	
+
 	//Method to create a group
 	private boolean createGroup(String groupName, UserToken yourToken)
 	{
 		//Assumed user doesn't need to be an admin to create groups
 		//doesn't check the token for administrative rights
 		String requester = yourToken.getSubject();
-		
+
 		//checks if requester exists
 		if(my_gs.userList.checkUser(requester))
 		{
@@ -455,13 +470,13 @@ public class GroupThread extends Thread
 			else
 			{
 				my_gs.groupList.addGroup(groupName); //creates the group
-				
+
 				//Adds owner to the group upon group creation for the time being
 				//CREATE ADD/REMOVE OWNER METHODS IN GROUP CLIENT
-					
+
 				my_gs.groupList.addGroupOwner(groupName, requester); //sets creator as owner
 				my_gs.groupList.addGroupUser(groupName, requester); //sets creator as a group member
-				my_gs.userList.addGroup(requester, groupName); 
+				my_gs.userList.addGroup(requester, groupName);
 				my_gs.userList.addOwnership(requester, groupName);
 				return true;
 			}
@@ -471,7 +486,7 @@ public class GroupThread extends Thread
 			return false; //requester does not exist
 		}
 	}
-	
+
 	private boolean deleteGroup(String groupName, UserToken yourToken)
 	{
 		String requester = yourToken.getSubject();
@@ -488,37 +503,37 @@ public class GroupThread extends Thread
 				{
 					//will need to remove this group from all users' group list
 					ArrayList<String> deleteFromUsers = new ArrayList<String>();
-					
+
 					//list all users that were in the group for deletion
 					for(int i = 0; i < my_gs.groupList.getGroupMembers(groupName).size(); i++)
 					{
 						deleteFromUsers.add(my_gs.groupList.getGroupMembers(groupName).get(i));
 					}
-					
+
 					//will also need to remove this group from all owners' ownership
 					ArrayList<String> deleteFromOwners = new ArrayList<String>();
-					
+
 					//lists all users that were owners for deletion
 					for(int i = 0; i < my_gs.groupList.getGroupOwners(groupName).size(); i++)
 					{
 						deleteFromOwners.add(my_gs.groupList.getGroupOwners(groupName).get(i));
 					}
-					
+
 					//removes this group from all users
 					for(int i = 0; i < deleteFromUsers.size(); i++)
 					{
 						my_gs.userList.removeGroup(deleteFromUsers.get(i), groupName);
 					}
-					
+
 					//removes this group from all owners
 					for(int i = 0; i < deleteFromOwners.size(); i++)
 					{
 						my_gs.userList.removeOwnership(deleteFromOwners.get(i), groupName);
 					}
-					
+
 					//finally removes the group from the list
 					my_gs.groupList.deleteGroup(groupName);
-					
+
 					return true;
 				}
 				else
@@ -536,12 +551,12 @@ public class GroupThread extends Thread
 			return false; //requester does not exist
 		}
 	}
-	
+
 	//returns a list of group members
 	private List<String> listMembers(String groupName, UserToken yourToken)
 	{
 		String requester = yourToken.getSubject();
-		
+
 		//does requester exist
 		if(my_gs.userList.checkUser(requester))
 		{
@@ -571,22 +586,22 @@ public class GroupThread extends Thread
 			return null; //requester doesn't exist
 		}
 	}
-	
+
 	private boolean addUserToGroup(String username, String groupName, UserToken yourToken)
 	{
 		String requester = yourToken.getSubject();
-		
+
 		if(my_gs.userList.checkUser(requester))
 		{
 			ArrayList<String> temp = my_gs.userList.getUserGroups(requester);
-		
+
 			//checks if you're an admin or an owner
 			if(temp.contains("ADMIN") || my_gs.groupList.checkOwner(groupName, requester))
-			{ 
+			{
 				//does the user to be added exist
 				if(my_gs.userList.checkUser(username))
 				{
-					
+
 					if(my_gs.groupList.checkGroup(groupName))
 					{
 						//is the user already in the group?
@@ -600,7 +615,7 @@ public class GroupThread extends Thread
 							my_gs.groupList.addGroupUser(groupName, username);
 							//adds group to user's list of groups
 							my_gs.userList.addGroup(username, groupName);
-							
+
 							return true;
 						}
 					}
@@ -624,11 +639,11 @@ public class GroupThread extends Thread
 			return false; //requester doesn't exist
 		}
 	}
-	
+
 	private boolean removeUserFromGroup(String username, String groupName, UserToken yourToken)
 	{
 		String requester = yourToken.getSubject();
-		
+
 		if(my_gs.userList.checkUser(requester))
 		{
 			//checks admin/ownership
@@ -645,7 +660,7 @@ public class GroupThread extends Thread
 						my_gs.groupList.removeGroupUser(groupName, username);
 						//remove from user's list of groups
 						my_gs.userList.removeGroup(username, groupName);
-						
+
 						return true;
 					}
 					else
@@ -668,4 +683,21 @@ public class GroupThread extends Thread
 			return false; //requester doesn't exist
 		}
 	}
+
+	// RSA Functions (Turley)
+	public static byte[] encryptRSA(String plainText, Key pubRSAkey) throws Exception
+  {
+  	Cipher rsaCipher = Cipher.getInstance("RSA");
+  	rsaCipher.init(Cipher.ENCRYPT_MODE, pubRSAkey);
+  	byte[] byteCipherText = rsaCipher.doFinal(plainText.getBytes());
+  	return byteCipherText;
+  }
+
+  public static byte[] decryptRSA(byte[] cipherText, Key privRSAkey) throws Exception
+  {
+  	Cipher bfCipher = Cipher.getInstance("RSA");
+  	bfCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
+  	byte[] byteText = bfCipher.doFinal(cipherText);
+  	return byteText;
+  }
 }

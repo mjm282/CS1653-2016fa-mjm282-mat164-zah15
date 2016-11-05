@@ -135,6 +135,12 @@ import java.security.*;
 			}
 		}
 		
+		
+		public synchronized PublicKey getUserKey(String user)
+        {
+            return list.get(user).getKey();
+        }
+		
 	}
 	
 }	
