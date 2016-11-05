@@ -86,32 +86,26 @@ public class GroupThread extends Thread
 						BigInteger c1 = (BigInteger)message.getObjContents().get(0);
 						if (c1.equals(chal))
 						{
-							// Get CiperText
-							byte[] ciph2 = (byte[])message.getObjContents().get(1);
-							// Decrypt CipherText
-							BigInteger c2 = decryptBIRSA(ciph2, my_gs.getPrivateKey());
-							// Switch to User's public key
-							byte[] cipherBI2 = encryptChalRSA(c2, userKey); // Add to message
-							// Need to generate that AES key!
-							sessionKey = genSessionKey();
-							// Need to encrypt the session key
-							byte[] rsaSessionKey = encryptAESKeyRSA(sessionKey, userKey); // Add to message
-							// Need to get token and sign it
-
-
-							// And send it on back
-							response = new Envelope("OK");
-							response.addObject(cipherBI2);
-							output.writeObject(response);
-
-							// Moved so it only executes if user passes challange
-							UserToken yourToken = createToken(username); //Create a token
+							// Checking token exist before doing all the challange work
+							UserToken yourToken = createToken(username);
 							if(yourToken != null)
 							{
-							//Respond to the client. On error, the client will receive a null token
-							response = new Envelope("OK");
-							response.addObject(yourToken);
-							output.writeObject(response);
+								// Get CiperText
+								byte[] ciph2 = (byte[])message.getObjContents().get(1);
+								// Decrypt CipherText
+								BigInteger c2 = decryptBIRSA(ciph2, my_gs.getPrivateKey());
+								// Switch to User's public key
+								byte[] cipherBI2 = encryptChalRSA(c2, userKey); // Add to message
+								// Need to generate that AES key!
+								sessionKey = genSessionKey();
+								// Need to encrypt the session key
+								byte[] rsaSessionKey = encryptAESKeyRSA(sessionKey, userKey); // Add to message
+
+								//Respond to the client. On error, the client will receive a null token
+								// Restructure with challannge 
+								response = new Envelope("OK");
+								response.addObject(yourToken);
+								output.writeObject(response);
 							}
 							else
 							{
