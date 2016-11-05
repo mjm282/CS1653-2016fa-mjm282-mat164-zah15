@@ -60,7 +60,7 @@ public class GroupThread extends Thread
 						//Encrypt it with their public key, send it to the user ✅
 						//Wait for a response, verify the challenge response is correct ✅
 						//Decrypt the second challenge sent from the user, send it back encrypted with their public key ✅
-						//Generate an AES secret key and set the value of sessionKey as such
+						//Generate an AES secret key and set the value of sessionKey as such ✅
 						//In addition to the above, just simply do exactly what's below for creating tokens
 							//(I'll sort out timestamping within Token.java)
 						//Sign the token and encrypt it with sessionKey, send that
@@ -92,10 +92,29 @@ public class GroupThread extends Thread
 							BigInteger c2 = decryptBIRSA(ciph2, my_gs.getPrivateKey());
 							// Switch to User's public key
 							byte[] cipherBI2 = encryptChalRSA(c2, userKey);
+							// Need to generate that AES key!
+							sessionKey = genSessionKey();  // Function to generate sessionKey
+							// Need to encrypt the session key
+
 							// And send it on back
 							response = new Envelope("OK");
 							response.addObject(cipherBI2);
 							output.writeObject(response);
+
+							// Moved so it only executes if user passes challange
+							UserToken yourToken = createToken(username); //Create a token
+							if(yourToken != null)
+							{
+							//Respond to the client. On error, the client will receive a null token
+							response = new Envelope("OK");
+							response.addObject(yourToken);
+							output.writeObject(response);
+							}
+							else
+							{
+								response = new Envelope("FAIL");
+								output.writeObject(response);
+							}
 						}
 						else
 						{
@@ -104,20 +123,6 @@ public class GroupThread extends Thread
 							output.writeObject(response);
 						}
 						// End of Turley doing things
-
-						UserToken yourToken = createToken(username); //Create a token
-						if(yourToken != null)
-						{
-						//Respond to the client. On error, the client will receive a null token
-						response = new Envelope("OK");
-						response.addObject(yourToken);
-						output.writeObject(response);
-						}
-						else
-						{
-							response = new Envelope("FAIL");
-							output.writeObject(response);
-						}
 					}
 				}
 
@@ -712,7 +717,7 @@ public class GroupThread extends Thread
 	// RSA Functions (Turley)
 	public byte[] encryptChalRSA(BigInteger challenge, Key pubRSAkey) throws Exception
   {
-  	Cipher rsaCipher = Cipher.getInstance("RSA");
+  	Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
   	rsaCipher.init(Cipher.ENCRYPT_MODE, pubRSAkey);
   	byte[] byteCipherText = rsaCipher.doFinal(challenge.toByteArray());
   	return byteCipherText;
@@ -720,10 +725,19 @@ public class GroupThread extends Thread
 
   public BigInteger decryptBIRSA(byte[] cipherText, Key privRSAkey) throws Exception
   {
-  	Cipher bfCipher = Cipher.getInstance("RSA");
+  	Cipher bfCipher = Cipher.getInstance("RSA", "BC");
   	bfCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
   	byte[] byteText = bfCipher.doFinal(cipherText);
 		BigInteger dcBI = new BigInteger(byteText);
   	return dcBI;
   }
+
+	// AES Key (Turley)
+	public Key genSessionKey() throws Exception
+	{
+		KeyGenerator generator = KeyGenerator.getInstance("AES", "BC");
+		generator.init(192);
+		Key myAESkey = generator.generateKey();
+		return myAESkey;
+	}
 }
