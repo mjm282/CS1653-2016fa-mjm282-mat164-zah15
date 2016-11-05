@@ -1,9 +1,13 @@
 import java.util.List;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class Token implements UserToken
 {
 	private String sName; //the name of the Server
 	private String uName; //the name of the User
+	private String timeStamp;
 	private List<String> uGroups; //a list of the User's groups
 	
 	//basic constructor for Token, sets the server name, username, and a list of the user's groups
@@ -12,6 +16,7 @@ public class Token implements UserToken
 		setServer(s);
 		setUser(u);
 		setGroups(g);
+		setTimestamp();
 	}
 	
 	//setters and getters for the class
@@ -28,6 +33,13 @@ public class Token implements UserToken
 	private void setGroups(List<String> names)
 	{
 		uGroups = names;
+	}
+	
+	private void setTimestamp()
+	{
+		DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+		String time = dateFormat.format(new Date());
+		timeStamp = time;
 	}
 
 	//adds a group to the list of groups
@@ -71,5 +83,10 @@ public class Token implements UserToken
 	public List<String> getGroups()
 	{
 		return uGroups;
+	}
+	
+	public String getTimestamp()
+	{
+		return timeStamp;
 	}
 }
