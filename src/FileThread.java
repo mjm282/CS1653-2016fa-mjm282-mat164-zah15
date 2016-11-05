@@ -22,6 +22,16 @@ public class FileThread extends Thread
 
 	public void run()
 	{
+		Key sessionKey;
+		//TODO file auth
+		//send public key in plain text
+			//in fileclient they will calculate the sha256 hash of the key
+		//recieve challenge C1, decrypt it with private key
+		//send back plaintext challenge
+		//recieve signed, encrypted token as well as encrypted AES key
+			//Set sessionKey to AES key
+		//validate timestamp on token
+		
 		boolean proceed = true;
 		try
 		{

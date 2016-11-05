@@ -9,11 +9,14 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import org.bouncycastle.*;
+import java.security.*;
 
 public class FileServer extends Server {
 	
 	public static final int SERVER_PORT = 4321;
 	public static FileList fileList;
+	private KeyPair servPair;
 	
 	public FileServer() {
 		super(SERVER_PORT, "FilePile");
@@ -24,8 +27,15 @@ public class FileServer extends Server {
 	}
 	
 	public void start() {
+		//set provider to bouncycastle
+		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+		
 		String fileFile = "FileList.bin";
+		//RSA Keypair for the file server
+		String keyFile = "FileKeys.bin";
+		
 		ObjectInputStream fileStream;
+		ObjectInputStream keyStream; //input stream for RSA keypair
 		
 		//This runs a thread that saves the lists on program exit
 		Runtime runtime = Runtime.getRuntime();
@@ -54,6 +64,64 @@ public class FileServer extends Server {
 		catch(ClassNotFoundException e)
 		{
 			System.out.println("Error reading from FileList file");
+			System.exit(-1);
+		}
+		
+		try
+		{
+			FileInputStream kfis = new FileInputStream(keyFile);
+			keyStream = new ObjectInputStream(kfis);
+			servPair = (KeyPair)keyStream.readObject();
+		}
+		catch(FileNotFoundException e)
+		{
+			System.out.println("RSA Key pair does not exist, creating servPair...");
+			try
+			{
+				KeyPairGenerator sKeyGen = KeyPairGenerator.getInstance("RSA", "BC");
+				sKeyGen.initialize(2048);
+				servPair = sKeyGen.generateKeyPair();
+				
+				//writes RSA keypair to disk
+				ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(keyFile));
+				keyOutStream.writeObject(servPair);
+				keyOutStream.close();
+			}
+			catch(NoSuchAlgorithmException BCErr)
+			{
+				System.err.println("Error: " + BCErr.getMessage());
+				BCErr.printStackTrace(System.err);
+				System.exit(-1);
+			}
+			catch(NoSuchProviderException BCErr)
+			{
+				System.err.println("Error: " + BCErr.getMessage());
+				BCErr.printStackTrace(System.err);
+				System.exit(-1);
+			}
+			catch(FileNotFoundException ee)
+			{
+				System.err.println(ee.getMessage());
+				ee.printStackTrace(System.err);
+				System.exit(-1);
+			}
+			catch(IOException ee)
+			{
+				System.err.println(ee.getMessage());
+				ee.printStackTrace(System.err);
+				System.exit(-1);
+			}
+		}
+		catch (IOException e)
+		{
+			System.err.println(e.getMessage());
+			e.printStackTrace(System.err);
+			System.exit(-1);
+		}
+		catch (ClassNotFoundException e)
+		{
+			System.err.println(e.getMessage());
+			e.printStackTrace(System.err);
 			System.exit(-1);
 		}
 		
