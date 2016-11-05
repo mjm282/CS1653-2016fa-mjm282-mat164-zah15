@@ -78,7 +78,7 @@ public class GroupThread extends Thread
 						byte[] cipherBI = encryptChalRSA(chal, userKey);
 						// And send that Encrypted ish
 						response = new Envelope("OK");
-						response.addObject(cipherBI);
+						response.addObject(cipherBI); // 0
 						output.writeObject(response);
 						// Wait for message
 						message = (Envelope)input.readObject();
