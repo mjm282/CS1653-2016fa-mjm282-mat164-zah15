@@ -95,15 +95,22 @@ public class GroupThread extends Thread
 								// Decrypt CipherText
 								BigInteger c2 = decryptBIRSA(ciph2, my_gs.getPrivateKey());
 								// Switch to User's public key
-								byte[] cipherBI2 = encryptChalRSA(c2, userKey); // Add to message
+								//byte[] cipherBI2 = encryptChalRSA(c2, userKey);
 								// Need to generate that AES key!
 								sessionKey = genSessionKey();
 								// Need to encrypt the session key
 								byte[] rsaSessionKey = encryptAESKeyRSA(sessionKey, userKey); // Add to message
+								// Encrypt the token
+								// How do I serilize this?
 
 								//Respond to the client. On error, the client will receive a null token
-								// Restructure with challannge 
+								// Restructure with challannge
 								response = new Envelope("OK");
+								// Add challenge
+								response.addObject(c2);
+								// Add AES sessionKey (encrypted)
+								response.addObject(rsaSessionKey);
+								// Need to encrypt that token!
 								response.addObject(yourToken);
 								output.writeObject(response);
 							}
