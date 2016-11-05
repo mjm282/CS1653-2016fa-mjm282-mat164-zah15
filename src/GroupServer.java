@@ -40,7 +40,7 @@ public class GroupServer extends Server
 
 		//sets security provider to bouncycastle
 		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-		
+
 		String userFile = "UserList.bin";
 		String groupFile = "GroupList.bin";
 		//kind of insecure, but assuming the server is trustworthy this is fine right now
@@ -67,15 +67,15 @@ public class GroupServer extends Server
 		{
 			System.out.println("GroupServer RSA Key pair does not exist, creating servPair...");
 			try
-			{			
+			{
 				KeyPairGenerator sKeyGen = KeyPairGenerator.getInstance("RSA", "BC");
 				sKeyGen.initialize(2048);
 				servPair = sKeyGen.generateKeyPair();
-				
+
 				try
 				{
 					//writes the keypair for storage
-					ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(keyFile));					
+					ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(keyFile));
 					keyOutStream.writeObject(servPair);
 					keyOutStream.close();
 				}
@@ -85,7 +85,7 @@ public class GroupServer extends Server
 					ee.printStackTrace(System.err);
 				}
 				catch(IOException ee)
-				{	
+				{
 					System.err.println(ee.getMessage());
 					ee.printStackTrace(System.err);
 				}
@@ -113,8 +113,8 @@ public class GroupServer extends Server
 			System.out.println("Error reading from ServerKeys file");
 			System.exit(-1);
 		}
-		
-		
+
+
 		//Open user file to get user list
 		try
 		{
@@ -132,7 +132,7 @@ public class GroupServer extends Server
 			//Create a new list, add current user to the ADMIN group. They now own the ADMIN group.
 			userList = new UserList();
 			groupList = new GroupList();
-			
+
 			//generates the admin's keypair (this will likely be temporary) and saves it to a separate file for safekeeping, adds the public key to the admin's userList entry
 			try
 			{
@@ -140,11 +140,11 @@ public class GroupServer extends Server
 				adminKeyGen.initialize(2048);
 				KeyPair adminPair = adminKeyGen.generateKeyPair();
 				userList.addUser(username, adminPair.getPublic());
-				
+
 				//store's admin's keypair to disk
 				String admPath = username + ".bin";
 				//writes the keypair for storage
-				ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(admPath));					
+				ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(admPath));
 				keyOutStream.writeObject(servPair);
 				keyOutStream.close();
 			}
@@ -172,7 +172,7 @@ public class GroupServer extends Server
 				BCErr.printStackTrace(System.err);
 				System.exit(-1);
 			}
-			
+
 
 			groupList.addGroup("ADMIN");
 			groupList.addGroupUser("ADMIN", username);
@@ -266,6 +266,18 @@ public class GroupServer extends Server
 			System.err.println("Error: " + e.getMessage());
 			e.printStackTrace(System.err);
 		}
+
+	}
+
+	public Key getPublicKey() {
+		// Function to get the public key
+		Key servPubKey = servPair.getPublic();
+		return servPubKey;
+	}
+
+	public Key getPrivateKey() {
+		Key servPrivateKey = servPair.getPrivate();
+		return servPrivateKey;
 
 	}
 

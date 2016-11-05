@@ -1,5 +1,5 @@
 import java.util.List;
-
+import java.security.*;
 /**
  * Interface describing the operations that must be supported by the
  * client application used to talk with the group server.  All methods
@@ -38,7 +38,8 @@ public interface GroupClientInterface
      *         If this user does not exist, a null value will be returned.
      *
      */
-    public UserToken getToken(final String username);
+     // Added in KeyPair for public key auth
+    public UserToken getToken(final String username, final KeyPair userKey);
 
 
     /**
