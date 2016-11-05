@@ -57,7 +57,7 @@ public class GroupThread extends Thread
 						//TODO: client-server authentication
 						//Look up the user in UserList by their username, get their public key ✅
 						//Generate a random BigInteger challenge ✅
-						//Encrypt it with their public key, send it to the user
+						//Encrypt it with their public key, send it to the user ✅
 						//Wait for a response, verify the challenge response is correct
 						//Decrypt the second challenge sent from the user, send it back encrypted with their public key
 						//Generate an AES secret key and set the value of sessionKey as such
@@ -75,6 +75,12 @@ public class GroupThread extends Thread
 						// Now create the BigInteger
 						BigInteger chal = new BigInteger(256, chalRand);
 						// Now Encrypt that ish
+						byte[] cipherBI = encryptChalRSA(chal, userKey);
+						// And send that Encrypted ish
+						response = new Envelope("OK");
+						response.addObject(cipherBI);
+						output.writeObject(response);
+
 
 
 
@@ -685,19 +691,20 @@ public class GroupThread extends Thread
 	}
 
 	// RSA Functions (Turley)
-	public static byte[] encryptRSA(String plainText, Key pubRSAkey) throws Exception
+	public static byte[] encryptChalRSA(BigInteger challenge, Key pubRSAkey) throws Exception
   {
   	Cipher rsaCipher = Cipher.getInstance("RSA");
   	rsaCipher.init(Cipher.ENCRYPT_MODE, pubRSAkey);
-  	byte[] byteCipherText = rsaCipher.doFinal(plainText.getBytes());
+  	byte[] byteCipherText = rsaCipher.doFinal(challenge.toByteArray());
   	return byteCipherText;
   }
 
-  public static byte[] decryptRSA(byte[] cipherText, Key privRSAkey) throws Exception
+  public static BigInteger decryptRSA(byte[] cipherText, Key privRSAkey) throws Exception
   {
   	Cipher bfCipher = Cipher.getInstance("RSA");
   	bfCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
   	byte[] byteText = bfCipher.doFinal(cipherText);
-  	return byteText;
+		BigInteger dcBI = new BigInteger(byteText);
+  	return dcBI;
   }
 }
