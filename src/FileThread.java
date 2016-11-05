@@ -10,19 +10,26 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 // I used an ArrayList for LFILES
 import java.util.ArrayList;
+import org.bouncycastle.*;
+import java.security.*;
+import java.math.BigInteger;
 
 public class FileThread extends Thread
 {
 	private final Socket socket;
+	private FileServer my_fs;
 
-	public FileThread(Socket _socket)
+	public FileThread(Socket _socket, FileServer _fs)
 	{
 		socket = _socket;
+		my_fs = _fs;
 	}
 
 	public void run()
 	{
+		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
 		Key sessionKey;
+		UserToken uToken;
 		//TODO file auth
 		//send public key in plain text
 			//in fileclient they will calculate the sha256 hash of the key
@@ -31,14 +38,62 @@ public class FileThread extends Thread
 		//recieve signed, encrypted token as well as encrypted AES key
 			//Set sessionKey to AES key
 		//validate timestamp on token
-		
+
 		boolean proceed = true;
 		try
 		{
 			System.out.println("*** New connection from " + socket.getInetAddress() + ":" + socket.getPort() + "***");
 			final ObjectInputStream input = new ObjectInputStream(socket.getInputStream());
 			final ObjectOutputStream output = new ObjectOutputStream(socket.getOutputStream());
-			Envelope response;
+
+			//Send public key generated from FileServer
+			Envelope message = null;
+			message = new Envelope("SHAKE");
+			message.addObject(my_fs.getPublicKey());
+			output.writeObject(message);
+
+			//Receive challenge and decrypt with private key
+			Envelope response = null;
+			resonse = (Envelope)input.readObject();
+			privKey = my_fs.getPrivateKey();
+			if(response.getMessage.compareTo("OK")==0)
+			{
+				byte[] chal = (byte[])response.getObjContents().get(0);
+				Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+				rsaCipher.init(Cipher.DECRYPT_MODE, privKey);
+				byte[] byteText = rsaCipher.doFinal(chal);
+				BigInteger plainChal = new BigInteger(byteText);
+
+				//Send back plaintext challenge
+				message - new Envelope("OK")
+				message.addObject(plainChal);
+				output.writeObject(message);
+			}
+			else
+			{
+				message = new Envelope("FAIL");
+				output.writeObject(message);
+			}
+
+			//Decrypt toekn and AES key
+			response = (Envelope)input.readObject();
+			if(response.getMessage().compareTo("OK")==0)
+			{
+				byte[] aesToken = (byte[])reponse.getObjContents().get(0);
+				byte[] rsaSessionKey = (byte[])response.getObjContents().get(1);
+				IvParameterSpec vec = (IvParameterSpec)response.getObjContents().get(2);
+
+				//Decrypt sessionKey
+				rsaCipher = Cipher.getInstance("RSA", "BC");
+				rsaCipher.init(Cipher.DECRYPT_MODE, privKey);
+				sessionKey = (Key)rsaCipher.doFinal(rsaSessionKey);
+
+				Cipher aesCipher = Cipher.getInstance("AES", "BC");
+				aesCipher.init(Cipher.DECRYPT_MODE, sessionKey, vec);
+				uToken = (UserToken)aesCipher.doFinal(aesToken);
+
+			}
+
 
 			do
 			{
@@ -67,7 +122,7 @@ public class FileThread extends Thread
 							// Lists of Files
 							List<ShareFile> allFiles = FileServer.fileList.getFiles(); // Full file list from server
 							List<String> userFiles = new ArrayList<String>(); // List of user's files
-							
+
 							if (allFiles != null) // If there are no files on the server, there is nothing for the user
 							{
 								for (ShareFile sf: allFiles)
@@ -78,7 +133,7 @@ public class FileThread extends Thread
 									}
 								}
 							}
-							
+
 							response = new Envelope("OK"); // Set the response to indicate success
 							response.addObject(userFiles); // Append the file list the responce
 						}

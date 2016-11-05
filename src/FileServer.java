@@ -13,11 +13,11 @@ import org.bouncycastle.*;
 import java.security.*;
 
 public class FileServer extends Server {
-	
+
 	public static final int SERVER_PORT = 4321;
 	public static FileList fileList;
 	private KeyPair servPair;
-	
+
 	public FileServer() {
 		super(SERVER_PORT, "FilePile");
 	}
@@ -25,23 +25,23 @@ public class FileServer extends Server {
 	public FileServer(int _port) {
 		super(_port, "FilePile");
 	}
-	
+
 	public void start() {
 		//set provider to bouncycastle
 		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-		
+
 		String fileFile = "FileList.bin";
 		//RSA Keypair for the file server
 		String keyFile = "FileKeys.bin";
-		
+
 		ObjectInputStream fileStream;
 		ObjectInputStream keyStream; //input stream for RSA keypair
-		
+
 		//This runs a thread that saves the lists on program exit
 		Runtime runtime = Runtime.getRuntime();
 		Thread catchExit = new Thread(new ShutDownListenerFS());
 		runtime.addShutdownHook(catchExit);
-		
+
 		//Open user file to get user list
 		try
 		{
@@ -52,9 +52,9 @@ public class FileServer extends Server {
 		catch(FileNotFoundException e)
 		{
 			System.out.println("FileList Does Not Exist. Creating FileList...");
-			
+
 			fileList = new FileList();
-			
+
 		}
 		catch(IOException e)
 		{
@@ -66,7 +66,7 @@ public class FileServer extends Server {
 			System.out.println("Error reading from FileList file");
 			System.exit(-1);
 		}
-		
+
 		try
 		{
 			FileInputStream kfis = new FileInputStream(keyFile);
@@ -81,7 +81,7 @@ public class FileServer extends Server {
 				KeyPairGenerator sKeyGen = KeyPairGenerator.getInstance("RSA", "BC");
 				sKeyGen.initialize(2048);
 				servPair = sKeyGen.generateKeyPair();
-				
+
 				//writes RSA keypair to disk
 				ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(keyFile));
 				keyOutStream.writeObject(servPair);
@@ -124,7 +124,7 @@ public class FileServer extends Server {
 			e.printStackTrace(System.err);
 			System.exit(-1);
 		}
-		
+
 		File file = new File("shared_files");
 		 if (file.mkdir()) {
 			 System.out.println("Created new shared_files directory");
@@ -133,32 +133,32 @@ public class FileServer extends Server {
 			 System.out.println("Found shared_files directory");
 		 }
 		 else {
-			 System.out.println("Error creating shared_files directory");				 
+			 System.out.println("Error creating shared_files directory");
 		 }
-		
+
 		//Autosave Daemon. Saves lists every 5 minutes
 		AutoSaveFS aSave = new AutoSaveFS();
 		aSave.setDaemon(true);
 		aSave.start();
-		
-		
+
+
 		boolean running = true;
-		
+
 		try
-		{			
+		{
 			final ServerSocket serverSock = new ServerSocket(port);
 			System.out.printf("%s up and running\n", this.getClass().getName());
-			
+
 			Socket sock = null;
 			Thread thread = null;
-			
+
 			while(running)
 			{
 				sock = serverSock.accept();
 				thread = new FileThread(sock);
 				thread.start();
 			}
-			
+
 			System.out.printf("%s shut down\n", this.getClass().getName());
 		}
 		catch(Exception e)
@@ -166,6 +166,17 @@ public class FileServer extends Server {
 			System.err.println("Error: " + e.getMessage());
 			e.printStackTrace(System.err);
 		}
+	}
+
+	public Key getPublicKey() {
+		//Function to get the public keyt
+		Key servPubKey = servPair.getPublic();
+		return servPubKey;
+	}
+
+	public Key getPrivateKey() {
+		Key servPrivKey = servPair.getPrivate();
+		return servPrivKey;
 	}
 }
 
