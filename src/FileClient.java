@@ -7,6 +7,22 @@ import java.io.IOException;
 import java.util.List;
 
 public class FileClient extends Client implements FileClientInterface {
+	
+	//TODO: Server authentication
+	//make custom connect() class with args server, port, and token
+	/* // Create socket
+			sock = new Socket(server, port);
+			
+			// Set up I/O
+			output = new ObjectOutputStream(sock.getOutputStream());
+			input = new ObjectInputStream(sock.getInputStream());
+	*/
+	//recieve public key from server, SHA-256 hash it
+		//contact fileserver admin offline to verify that it's correct
+	//generate a challenge and send to server
+	//Wait for challenge to be sent back decrypted, verify it's correct
+		//for security maybe do hash stuff
+	//send token (encrypted with AES key) as well as generated AES key (encrypted with server public key)
 
 	public boolean delete(String filename, UserToken token) {
 		String remotePath;
