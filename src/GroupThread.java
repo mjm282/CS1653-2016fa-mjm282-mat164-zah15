@@ -58,8 +58,8 @@ public class GroupThread extends Thread
 						//Look up the user in UserList by their username, get their public key ✅
 						//Generate a random BigInteger challenge ✅
 						//Encrypt it with their public key, send it to the user ✅
-						//Wait for a response, verify the challenge response is correct
-						//Decrypt the second challenge sent from the user, send it back encrypted with their public key
+						//Wait for a response, verify the challenge response is correct ✅
+						//Decrypt the second challenge sent from the user, send it back encrypted with their public key ✅
 						//Generate an AES secret key and set the value of sessionKey as such
 						//In addition to the above, just simply do exactly what's below for creating tokens
 							//(I'll sort out timestamping within Token.java)
@@ -80,10 +80,29 @@ public class GroupThread extends Thread
 						response = new Envelope("OK");
 						response.addObject(cipherBI);
 						output.writeObject(response);
-
-
-
-
+						// Wait for message
+						message = (Envelope)input.readObject();
+						// Read in the responce ... I think :/
+						BigInteger c1 = (BigInteger)message.getObjContents().get(0);
+						if (c1.equals(chal))
+						{
+							// Get CiperText
+							byte[] ciph2 = (byte[])message.getObjContents().get(1);
+							// Decrypt CipherText
+							BigInteger c2 = decryptBIRSA(ciph2, my_gs.getPrivateKey());
+							// Switch to User's public key
+							byte[] cipherBI2 = encryptChalRSA(c2, userKey);
+							// And send it on back
+							response = new Envelope("OK");
+							response.addObject(cipherBI2);
+							output.writeObject(response);
+						}
+						else
+						{
+							// The challenge does not match ... sad day
+							response = new Envelope("FAIL");
+							output.writeObject(response);
+						}
 						// End of Turley doing things
 
 						UserToken yourToken = createToken(username); //Create a token
@@ -691,7 +710,7 @@ public class GroupThread extends Thread
 	}
 
 	// RSA Functions (Turley)
-	public static byte[] encryptChalRSA(BigInteger challenge, Key pubRSAkey) throws Exception
+	public byte[] encryptChalRSA(BigInteger challenge, Key pubRSAkey) throws Exception
   {
   	Cipher rsaCipher = Cipher.getInstance("RSA");
   	rsaCipher.init(Cipher.ENCRYPT_MODE, pubRSAkey);
@@ -699,7 +718,7 @@ public class GroupThread extends Thread
   	return byteCipherText;
   }
 
-  public static BigInteger decryptRSA(byte[] cipherText, Key privRSAkey) throws Exception
+  public BigInteger decryptBIRSA(byte[] cipherText, Key privRSAkey) throws Exception
   {
   	Cipher bfCipher = Cipher.getInstance("RSA");
   	bfCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
