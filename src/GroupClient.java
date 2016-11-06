@@ -39,7 +39,7 @@ public class GroupClient extends Client implements GroupClientInterface
 			Key cPubKey  = userKey.getPublic();
 
 			// Servers public key
-			Key sPubKey = cPubKey; // ⛔️ CHANGE THIS! THIS IS ONLY A PLACEHOLDER ⛔️
+			Key sPubKey = cPubKey; //CHANGE THIS! THIS IS ONLY A PLACEHOLDER
 
 			//Tell the server to return a token.
 			message = new Envelope("GET");

@@ -13,6 +13,10 @@ import java.util.ArrayList;
 import org.bouncycastle.*;
 import java.security.*;
 import java.math.BigInteger;
+import javax.crypto.KeyGenerator;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 public class FileThread extends Thread
 {
@@ -30,6 +34,10 @@ public class FileThread extends Thread
 		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
 		Key sessionKey;
 		UserToken uToken;
+		Key privKey;
+		
+		Serializer ser = new Serializer();
+		
 		//TODO file auth
 		//send public key in plain text
 			//in fileclient they will calculate the sha256 hash of the key
@@ -54,9 +62,9 @@ public class FileThread extends Thread
 
 			//Receive challenge and decrypt with private key
 			Envelope response = null;
-			resonse = (Envelope)input.readObject();
+			response = (Envelope)input.readObject();
 			privKey = my_fs.getPrivateKey();
-			if(response.getMessage.compareTo("OK")==0)
+			if(response.getMessage().compareTo("OK")==0)
 			{
 				byte[] chal = (byte[])response.getObjContents().get(0);
 				Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
@@ -65,7 +73,7 @@ public class FileThread extends Thread
 				BigInteger plainChal = new BigInteger(byteText);
 
 				//Send back plaintext challenge
-				message - new Envelope("OK")
+				message = new Envelope("OK");
 				message.addObject(plainChal);
 				output.writeObject(message);
 			}
@@ -79,18 +87,18 @@ public class FileThread extends Thread
 			response = (Envelope)input.readObject();
 			if(response.getMessage().compareTo("OK")==0)
 			{
-				byte[] aesToken = (byte[])reponse.getObjContents().get(0);
+				byte[] aesToken = (byte[])response.getObjContents().get(0);
 				byte[] rsaSessionKey = (byte[])response.getObjContents().get(1);
 				IvParameterSpec vec = (IvParameterSpec)response.getObjContents().get(2);
 
 				//Decrypt sessionKey
-				rsaCipher = Cipher.getInstance("RSA", "BC");
+				Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
 				rsaCipher.init(Cipher.DECRYPT_MODE, privKey);
-				sessionKey = (Key)rsaCipher.doFinal(rsaSessionKey);
+				sessionKey = new SecretKeySpec(rsaCipher.doFinal(rsaSessionKey), "AES");
 
 				Cipher aesCipher = Cipher.getInstance("AES", "BC");
 				aesCipher.init(Cipher.DECRYPT_MODE, sessionKey, vec);
-				uToken = (UserToken)aesCipher.doFinal(aesToken);
+				uToken = (UserToken)ser.deserialize(aesCipher.doFinal(aesToken));
 
 			}
 

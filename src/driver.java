@@ -2,11 +2,51 @@
 
 import java.io.*;
 import java.util.*;
+import org.bouncycastle.*;
+import java.security.*;
 
 public class driver
 {
 	public static void main(String [] args)
 	{
+		KeyPair clientPair = null;
+		String keyFile = "";
+		if(args.length != 1)
+		{
+			System.out.println("ERROR: Please specify your keyfile at runtime");
+			System.exit(-1);
+		}
+		else
+		{
+			keyFile = args[1];
+		}
+		ObjectInputStream keyStream; //used to read user's RSA keypair
+		try
+		{
+			FileInputStream fis = new FileInputStream(keyFile);
+			keyStream = new ObjectInputStream(fis);
+			clientPair = (KeyPair)keyStream.readObject();
+		}
+		catch(FileNotFoundException e)
+		{
+			System.err.println(e.getMessage());
+			e.printStackTrace(System.err);
+			System.exit(-1);
+		}
+		catch(IOException e)
+		{
+			System.err.println(e.getMessage());
+			e.printStackTrace(System.err);
+			System.exit(-1);
+		}
+		catch(ClassNotFoundException e)
+		{
+			System.err.println(e.getMessage());
+			e.printStackTrace(System.err);
+			System.exit(-1);
+		}
+		
+		
 		GroupClient gClient = new GroupClient();
 		Scanner scan = new Scanner(System.in);
 		
@@ -32,32 +72,22 @@ public class driver
 		String fileAddress = scan.next();
 		System.out.println("Please enter the port of your File Server (default 4321)");
 		int filePort = scan.nextInt();
-		do
-		{
-			
-			try
-			{
-				fClient.connect(fileAddress, filePort);
-				//Thread.sleep(5000);
-			}
-			catch(Exception e){
-				System.out.println("Connection Interrupted: " + e);
-			}	
-		}while (!fClient.isConnected());
 		
 		
 		String groupCommand;
 		ArrayList<String> gcArr = new ArrayList<String>();
 		
 		String username;
-		String groupName = "test"; // Fake groupName so that it compiles
-		String sFile = "test";
-		String dFile = "test";
+		String groupName = ""; // Fake groupName so that it compiles
+		String sFile = "";
+		String dFile = "";
 		UserToken yourToken;
 
 		System.out.println("Please enter your username");
 		username = scan.next();
-		yourToken = gClient.getToken(username);
+		yourToken = gClient.getToken(username, clientPair);
+
+
 		if(yourToken == null)
 		{
 			System.out.println("ERROR: Unable to retrieve token, make sure your username is correct!");
@@ -66,6 +96,20 @@ public class driver
 			System.exit(0);
 		}
 		System.out.println("Your Groups: " + yourToken.getGroups());
+		
+		do
+		{
+			
+			try
+			{
+				fClient.connect(fileAddress, filePort, yourToken);
+				//Thread.sleep(5000);
+			}
+			catch(Exception e){
+				System.out.println("Connection Interrupted: " + e);
+			}	
+		}while (!fClient.isConnected());
+		
 		System.out.println("Type 'help' for a list of commands");
 		while(gClient.isConnected())
 		{

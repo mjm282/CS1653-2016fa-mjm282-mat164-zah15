@@ -1,13 +1,14 @@
 /* FileClient provides all the client functionality regarding the file server */
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.List;
+import java.net.Socket;
+import java.io.*;
+import java.util.*;
 import org.bouncycastle.*;
 import java.security.*;
 import java.math.BigInteger;
+import javax.crypto.KeyGenerator;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
 
 public class FileClient extends Client implements FileClientInterface {
 
@@ -42,7 +43,7 @@ public class FileClient extends Client implements FileClientInterface {
 			message = (Envelope)input.readObject();
 
 			if(message.getMessage().compareTo("SHAKE")==0){
-				PublicKey fileKey = response.getObjContents().get(0);
+				PublicKey fileKey = (PublicKey)response.getObjContents().get(0);
 				//calculate SHA-256 hash
 				MessageDigest md = MessageDigest.getInstance("SHA-256");
 				byte[] keyBytes = fileKey.getEncoded();
@@ -57,7 +58,7 @@ public class FileClient extends Client implements FileClientInterface {
 				BigInteger chal = new BigInteger(256, chalRand);
 				Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
 				rsaCipher.init(Cipher.ENCRYPT_MODE, fileKey);
-				byte[] cipherBI = rsaCipher.doFinal(challenge.toByteArray());
+				byte[] cipherBI = rsaCipher.doFinal(chal.toByteArray());
 
 				//Send encrypted challenge
 				response = new Envelope("OK");
@@ -74,12 +75,12 @@ public class FileClient extends Client implements FileClientInterface {
 					{
 						//Generate AES key
 						KeyGenerator gen = KeyGenerator.getInstance("AES", "BC");
-						generator.init(192);
+						gen.init(192);
 						sessionKey = gen.generateKey();
 
 						//Encrpyt token with AES Key
 						Serializer byteTok = new Serializer();
-						byte[] serTok = byteTok.Serialize(token);
+						byte[] serTok = byteTok.serialize(token);
 						SecureRandom ivRand = new SecureRandom();
 						byte[] ivBytes = new byte[16];
 						ivRand.nextBytes(ivBytes);
@@ -87,19 +88,20 @@ public class FileClient extends Client implements FileClientInterface {
 						byte[] aesTok;
 						Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
 						aesCipher.init(Cipher.ENCRYPT_MODE, sessionKey, vec);
-						byte[] aesTok = aesCipher.doFinal(serTok); //This is the token encrypted with AES
+						aesTok = aesCipher.doFinal(serTok); //This is the token encrypted with AES
 
 						//Encrypt AES key
 						byte[] rsaSessionKey;
 						rsaCipher = Cipher.getInstance("RSA", "BC");
-						rsaCipher.init(Cipher.ENCRYPT_MODE, fileKey)
+						rsaCipher.init(Cipher.ENCRYPT_MODE, fileKey);
 						rsaSessionKey = rsaCipher.doFinal(sessionKey.getEncoded());
 
 						//Send token encrypted with AES key and AES key encrypted with RSA public key
-						response = new Envelope("OK")
+						response = new Envelope("OK");
 						response.addObject(aesTok);
 						response.addObject(rsaSessionKey);
 						response.addObject(vec);
+						
 
 					}
 					else
@@ -109,6 +111,7 @@ public class FileClient extends Client implements FileClientInterface {
 					}
 				}
 			}
+			return isConnected();
 		}
 		catch(Exception e){
 			System.err.println("Error: " + e.getMessage());
