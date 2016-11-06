@@ -1,7 +1,7 @@
 /* Implements the GroupClient Interface */
 
 import java.util.*;
-import java.io.ObjectInputStream;
+import java.io.*;
 import javax.crypto.KeyGenerator;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
@@ -19,6 +19,9 @@ public class GroupClient extends Client implements GroupClientInterface
 
 	 public UserToken getToken(String username, KeyPair userKey)
 	 {
+		// Set security provider
+		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
 		try
 		{
 			//TODO: Client-server authentication
@@ -39,8 +42,33 @@ public class GroupClient extends Client implements GroupClientInterface
 			Key cPrivKey = userKey.getPrivate();
 			Key cPubKey  = userKey.getPublic();
 
+
 			// Servers public key
-			Key sPubKey = cPubKey; //CHANGE THIS! THIS IS ONLY A PLACEHOLDER
+      //gets the server's public key
+      PublicKey sPubKey = null;
+      try
+      {
+        ObjectInputStream keyStream;
+        FileInputStream fis = new FileInputStream("GroupPub.bin");
+        keyStream = new ObjectInputStream(fis);
+
+        sPubKey = (PublicKey)keyStream.readObject();
+      }
+      catch(FileNotFoundException e)
+      {
+        System.err.println("Make sure you have the file GroupPub.bin");
+        System.exit(-1);
+      }
+      catch(IOException e)
+      {
+        System.out.println("Error reading from GroupPub.bin");
+        System.exit(-1);
+      }
+      catch(ClassNotFoundException e)
+      {
+        System.out.println("Error reading from GroupPub.bin");
+        System.exit(-1);
+      }
 
 			//Tell the server to return a token.
 			message = new Envelope("GET");
