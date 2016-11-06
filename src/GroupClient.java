@@ -107,7 +107,9 @@ public class GroupClient extends Client implements GroupClientInterface
 					{
 						byte[] rsaSessionKey = (byte[])response.getObjContents().get(1);
 						byte[] aesTok = (byte[])response.getObjContents().get(2);
-						IvParameterSpec IV = (IvParameterSpec)response.getObjContents().get(3);
+						byte[] ivBytes = (byte[])response.getObjContents().get(3);
+						// Create IV from ivBytes
+						IvParameterSpec IV = new IvParameterSpec(ivBytes);
 						// And we have a session key!
 						sessionKey = decryptAESKeyRSA(rsaSessionKey, cPrivKey);
 						// Now retrive the token

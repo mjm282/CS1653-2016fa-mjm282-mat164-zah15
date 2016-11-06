@@ -86,31 +86,39 @@ public class GroupThread extends Thread
 						BigInteger c1 = (BigInteger)message.getObjContents().get(0);
 						if (c1.equals(chal))
 						{
+							System.out.println("C1 Verified");
 							// Checking token exist before doing all the challange work
 							UserToken yourToken = createToken(username);
 							if(yourToken != null)
 							{
+								System.out.println("Found Token");
 								// Get CiperText
 								byte[] ciph2 = (byte[])message.getObjContents().get(1);
 								// Decrypt CipherText
 								BigInteger c2 = decryptBIRSA(ciph2, my_gs.getPrivateKey());
+								System.out.println("C2: " + c2.toString());
 								// Switch to User's public key
 								//byte[] cipherBI2 = encryptChalRSA(c2, userKey);
 								// Need to generate that AES key!
 								sessionKey = genSessionKey();
+								System.out.println("Session Key" + sessionKey.toString());
 								// Need to encrypt the session key
 								byte[] rsaSessionKey = encryptAESKeyRSA(sessionKey, userKey); // Add to message
+								System.out.println("RSA Encrypted Session Key");
 								// Serialize the Token
 								Serializer byteTok = new Serializer();
 								byte[] serTok = byteTok.serialize(yourToken);
+								System.out.println("Serilized Token");
 								// Now we need to encrypt those byte[](s)
 								// Make an IV
 								SecureRandom ivRand = new SecureRandom();
 								byte[] ivBytes = new byte[16];
 								ivRand.nextBytes(ivBytes);
 								IvParameterSpec IV = new IvParameterSpec(ivBytes);
+								System.out.println("Created IV");
 								// And encrypt the Token!
 								byte[] aesTok = encryptAES(serTok, sessionKey, IV);
+								System.out.println("Encrypted Token");
 								// Now we just have to send it all back!
 
 								//Respond to the client. On error, the client will receive a null token
@@ -118,13 +126,18 @@ public class GroupThread extends Thread
 								response = new Envelope("OK");
 								// Add challenge
 								response.addObject(c2); //0
+								System.out.println("Added C2");
 								// Add AES sessionKey (encrypted)
 								response.addObject(rsaSessionKey);  //1
+								System.out.println("Added RSA Encrypted Session Key");
 								// Add encrypted token
 								response.addObject(aesTok); //2
+								System.out.println("Added AES Encrypted Token");
 								// And the IV would help in decryption
-								response.addObject(IV); //3
+								response.addObject(ivBytes); //3
+								System.out.println("Added ivBytes");
 								output.writeObject(response);
+								System.out.println("Sent Back Response");
 							}
 							else
 							{
@@ -760,7 +773,7 @@ public class GroupThread extends Thread
 	public Key genSessionKey() throws Exception
 	{
 		KeyGenerator generator = KeyGenerator.getInstance("AES", "BC");
-		generator.init(192);
+		generator.init(128);
 		Key myAESkey = generator.generateKey();
 		return myAESkey;
 	}
