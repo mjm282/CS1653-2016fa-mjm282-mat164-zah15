@@ -352,7 +352,7 @@ public class GroupClient extends Client implements GroupClientInterface
   	Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
   	rsaCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
   	byte[] byteText = rsaCipher.doFinal(cipherText);
-		BigInteger dcBI = new BigInteger(byteText);
+		BigInteger dcBI = new BigInteger(1, byteText);
   	return dcBI;
   }
 
