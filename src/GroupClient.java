@@ -9,6 +9,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.*;
 import java.security.*;
 import java.math.BigInteger;
+import org.bouncycastle.*;
 
 public class GroupClient extends Client implements GroupClientInterface
 {
@@ -86,27 +87,10 @@ public class GroupClient extends Client implements GroupClientInterface
 						// And Deserilize it
 						Serializer mySerializer = new Serializer();
 						token = (UserToken)mySerializer.deserialize(serTok);
+						return token;
 					}
 				}
-
-
-
 			}
-
-
-
-			//Successful response
-			if(response.getMessage().equals("OK"))
-			{
-				//If there is a token in the Envelope, return it
-				temp = response.getObjContents();
-				if(temp.size() == 1)
-				{
-					token = (UserToken)temp.get(0);
-					return token;
-				}
-			}
-
 			return null;
 		}
 		catch(Exception e)
