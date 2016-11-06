@@ -44,7 +44,8 @@ public class GroupServer extends Server
 		String userFile = "UserList.bin";
 		String groupFile = "GroupList.bin";
 		//kind of insecure, but assuming the server is trustworthy this is fine right now
-		String keyFile = "ServerKeys.bin"; //Stores the server's keypair
+		String keyFile = "GroupPair.bin"; //Stores the server's keypair
+		String pubFile = "GroupPub.bin"; //stores just the server's public key
 
 		Scanner console = new Scanner(System.in);
 		ObjectInputStream userStream;
@@ -77,6 +78,10 @@ public class GroupServer extends Server
 					//writes the keypair for storage
 					ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(keyFile));
 					keyOutStream.writeObject(servPair);
+					keyOutStream.close();
+					
+					keyOutStream = new ObjectOutputStream(new FileOutputStream(pubFile));
+					keyOutStream.writeObject(servPair.getPublic());
 					keyOutStream.close();
 				}
 				catch(FileNotFoundException ee)
@@ -140,12 +145,12 @@ public class GroupServer extends Server
 				adminKeyGen.initialize(2048);
 				KeyPair adminPair = adminKeyGen.generateKeyPair();
 				userList.addUser(username, adminPair.getPublic());
-
+				
 				//store's admin's keypair to disk
 				String admPath = username + ".bin";
 				//writes the keypair for storage
 				ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(admPath));
-				keyOutStream.writeObject(servPair);
+				keyOutStream.writeObject(adminPair);
 				keyOutStream.close();
 			}
 			catch(NoSuchAlgorithmException BCErr)
