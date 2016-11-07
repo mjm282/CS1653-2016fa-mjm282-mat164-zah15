@@ -177,11 +177,14 @@ public class FileThread extends Thread
 									}
 								}
 							}
-
-							response = new Envelope("OK"); // Set the response to indicate success
-							byte[] serFile = ser.serialize(userFiles);
-							byte[] aesFile = encryptAES(serFile, sessionKey, IV);
-							response.addObject(aesFile); // Append the file list the responce
+							if(workingToken.verifySignature())
+							{
+								System.out.println("Token Verified");
+								response = new Envelope("OK"); // Set the response to indicate success
+								byte[] serFile = ser.serialize(userFiles);
+								byte[] aesFile = encryptAES(serFile, sessionKey, IV);
+								response.addObject(aesFile); // Append the file list the responce
+							}
 						}
 					}
 					output.writeObject(response); // Send back any responce
@@ -218,32 +221,37 @@ public class FileThread extends Thread
 								response = new Envelope("FAIL-UNAUTHORIZED"); //Success
 							}
 							else  {
-								File file = new File("shared_files/"+remotePath.replace('/', '_'));
-								file.createNewFile();
-								FileOutputStream fos = new FileOutputStream(file);
-								System.out.printf("Successfully created file %s\n", remotePath.replace('/', '_'));
+								if (yourToken.verifySignature())
+								{
+									System.out.println("Token Verified");
 
-								response = new Envelope("READY"); //Success
-								output.writeObject(response);
+									File file = new File("shared_files/"+remotePath.replace('/', '_'));
+									file.createNewFile();
+									FileOutputStream fos = new FileOutputStream(file);
+									System.out.printf("Successfully created file %s\n", remotePath.replace('/', '_'));
 
-								e = (Envelope)input.readObject();
-								while (e.getMessage().compareTo("CHUNK")==0) {
-									fos.write((byte[])decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV), 0, (Integer)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV)));
 									response = new Envelope("READY"); //Success
 									output.writeObject(response);
-									e = (Envelope)input.readObject();
-								}
 
-								if(e.getMessage().compareTo("EOF")==0) {
-									System.out.printf("Transfer successful file %s\n", remotePath);
-									FileServer.fileList.addFile(yourToken.getSubject(), group, remotePath);
-									response = new Envelope("OK"); //Success
+									e = (Envelope)input.readObject();
+									while (e.getMessage().compareTo("CHUNK")==0) {
+										fos.write((byte[])decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV), 0, (Integer)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV)));
+										response = new Envelope("READY"); //Success
+										output.writeObject(response);
+										e = (Envelope)input.readObject();
+									}
+
+									if(e.getMessage().compareTo("EOF")==0) {
+										System.out.printf("Transfer successful file %s\n", remotePath);
+										FileServer.fileList.addFile(yourToken.getSubject(), group, remotePath);
+										response = new Envelope("OK"); //Success
+									}
+									else {
+										System.out.printf("Error reading file %s from client\n", remotePath);
+										response = new Envelope("ERROR-TRANSFER"); //Success
+									}
+									fos.close();
 								}
-								else {
-									System.out.printf("Error reading file %s from client\n", remotePath);
-									response = new Envelope("ERROR-TRANSFER"); //Success
-								}
-								fos.close();
 							}
 						}
 					}
@@ -278,62 +286,67 @@ public class FileThread extends Thread
 
 						}
 						else {
-							FileInputStream fis = new FileInputStream(f);
-
-							do {
-								byte[] buf = new byte[4096];
-								if (e.getMessage().compareTo("DOWNLOADF")!=0) {
-									System.out.printf("Server error: %s\n", e.getMessage());
-									break;
-								}
-								e = new Envelope("CHUNK");
-								int n = fis.read(buf); //can throw an IOException
-								if (n > 0) {
-									System.out.printf(".");
-								} else if (n < 0) {
-									System.out.println("Read error");
-
-								}
-
-
-								e.addObject(encryptAES(buf, sessionKey, IV));
-								Integer nSend = new Integer(n);
-								byte[] nSer = ser.serialize(nSend);
-								byte[] nAES = encryptAES(nSer, sessionKey, IV);
-								e.addObject(nAES);
-
-								output.writeObject(e);
-
-								e = (Envelope)input.readObject();
-
-
-							}
-							while (fis.available()>0);
-
-							//If server indicates success, return the member list
-							if(e.getMessage().compareTo("DOWNLOADF")==0)
+							if(t.verifySignature())
 							{
+								System.out.println("Token Verified");
 
-								e = new Envelope("EOF");
-								output.writeObject(e);
+								FileInputStream fis = new FileInputStream(f);
 
-								e = (Envelope)input.readObject();
-								if(e.getMessage().compareTo("OK")==0) {
-									System.out.printf("File data upload successful\n");
+								do {
+									byte[] buf = new byte[4096];
+									if (e.getMessage().compareTo("DOWNLOADF")!=0) {
+										System.out.printf("Server error: %s\n", e.getMessage());
+										break;
+									}
+									e = new Envelope("CHUNK");
+									int n = fis.read(buf); //can throw an IOException
+									if (n > 0) {
+										System.out.printf(".");
+									} else if (n < 0) {
+										System.out.println("Read error");
+
+									}
+
+
+									e.addObject(encryptAES(buf, sessionKey, IV));
+									Integer nSend = new Integer(n);
+									byte[] nSer = ser.serialize(nSend);
+									byte[] nAES = encryptAES(nSer, sessionKey, IV);
+									e.addObject(nAES);
+
+									output.writeObject(e);
+
+									e = (Envelope)input.readObject();
+
+
+								}
+								while (fis.available()>0);
+
+								//If server indicates success, return the member list
+								if(e.getMessage().compareTo("DOWNLOADF")==0)
+								{
+
+									e = new Envelope("EOF");
+									output.writeObject(e);
+
+									e = (Envelope)input.readObject();
+									if(e.getMessage().compareTo("OK")==0) {
+										System.out.printf("File data upload successful\n");
+									}
+									else {
+
+										System.out.printf("Upload failed: %s\n", e.getMessage());
+
+									}
+
 								}
 								else {
 
 									System.out.printf("Upload failed: %s\n", e.getMessage());
 
 								}
-
+								fis.close();
 							}
-							else {
-
-								System.out.printf("Upload failed: %s\n", e.getMessage());
-
-							}
-							fis.close();
 						}
 						}
 						catch(Exception e1)
@@ -361,25 +374,25 @@ public class FileThread extends Thread
 
 						try
 						{
+							if(t.verifySignature())
+							{
+								System.out.println("Token Verified");
+								File f = new File("shared_files/"+"_"+remotePath.replace('/', '_'));
 
-
-							File f = new File("shared_files/"+"_"+remotePath.replace('/', '_'));
-
-							if (!f.exists()) {
-								System.out.printf("Error file %s missing from disk\n", "_"+remotePath.replace('/', '_'));
-								e = new Envelope("ERROR_FILEMISSING");
+								if (!f.exists()) {
+									System.out.printf("Error file %s missing from disk\n", "_"+remotePath.replace('/', '_'));
+									e = new Envelope("ERROR_FILEMISSING");
+								}
+								else if (f.delete()) {
+									System.out.printf("File %s deleted from disk\n", "_"+remotePath.replace('/', '_'));
+									FileServer.fileList.removeFile("/"+remotePath);
+									e = new Envelope("OK");
+								}
+								else {
+									System.out.printf("Error deleting file %s from disk\n", "_"+remotePath.replace('/', '_'));
+									e = new Envelope("ERROR_DELETE");
+								}
 							}
-							else if (f.delete()) {
-								System.out.printf("File %s deleted from disk\n", "_"+remotePath.replace('/', '_'));
-								FileServer.fileList.removeFile("/"+remotePath);
-								e = new Envelope("OK");
-							}
-							else {
-								System.out.printf("Error deleting file %s from disk\n", "_"+remotePath.replace('/', '_'));
-								e = new Envelope("ERROR_DELETE");
-							}
-
-
 						}
 						catch(Exception e1)
 						{
