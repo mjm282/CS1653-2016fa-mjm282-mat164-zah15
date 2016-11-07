@@ -26,9 +26,11 @@ public class GroupThread extends Thread
 	public void run()
 	{
 		//The shared AES key for the current session
-		Key sessionKey;
+		Key sessionKey = null;
 
 		boolean proceed = true;
+
+		IvParameterSpec IV = null;
 
 		try
 		{
@@ -36,6 +38,7 @@ public class GroupThread extends Thread
 			System.out.println("*** New connection from " + socket.getInetAddress() + ":" + socket.getPort() + "***");
 			final ObjectInputStream input = new ObjectInputStream(socket.getInputStream());
 			final ObjectOutputStream output = new ObjectOutputStream(socket.getOutputStream());
+			Serializer mySerializer = new Serializer();
 
 			do
 			{
@@ -114,7 +117,7 @@ public class GroupThread extends Thread
 								SecureRandom ivRand = new SecureRandom();
 								byte[] ivBytes = new byte[16];
 								ivRand.nextBytes(ivBytes);
-								IvParameterSpec IV = new IvParameterSpec(ivBytes);
+								IV = new IvParameterSpec(ivBytes);
 								System.out.println("Created IV");
 								// And encrypt the Token!
 								byte[] aesTok = encryptAES(serTok, sessionKey, IV);
@@ -169,8 +172,12 @@ public class GroupThread extends Thread
 						{
 							if(message.getObjContents().get(1) != null)
 							{
-								String username = (String)message.getObjContents().get(0); //Extract the username
-								UserToken yourToken = (UserToken)message.getObjContents().get(1); //Extract the token
+								byte[] eUsername = (byte[])message.getObjContents().get(0); //Extract the username
+								byte[] eToken = (byte[])message.getObjContents().get(1); //Extract the token
+
+								String username = new String(decryptAES(eUsername, sessionKey, IV));
+								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES(eToken, sessionKey, IV));
+								System.out.println("Create User: " + username);
 
 								if(createUser(username, yourToken))
 								{
@@ -195,8 +202,9 @@ public class GroupThread extends Thread
 						{
 							if(message.getObjContents().get(1) != null)
 							{
-								String username = (String)message.getObjContents().get(0); //Extract the username
-								UserToken yourToken = (UserToken)message.getObjContents().get(1); //Extract the token
+								String username = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));
+								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
+								System.out.println("Del User: " + username);
 
 								if(deleteUser(username, yourToken))
 								{
@@ -221,8 +229,9 @@ public class GroupThread extends Thread
 						{
 							if(message.getObjContents().get(1) != null)
 							{
-								String groupName = (String)message.getObjContents().get(0);
-								UserToken yourToken = (UserToken)message.getObjContents().get(1);
+								String groupName = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));
+								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
+								System.out.println("Create Group: " + groupName);
 
 								if(createGroup(groupName, yourToken))
 								{
@@ -248,8 +257,9 @@ public class GroupThread extends Thread
 						{
 							if(message.getObjContents().get(1) != null)
 							{
-								String groupName = (String)message.getObjContents().get(0);
-								UserToken yourToken = (UserToken)message.getObjContents().get(1);
+								String groupName = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));
+								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
+								System.out.println("Delete Group: " + groupName);
 
 								if(deleteGroup(groupName, yourToken))
 								{
@@ -274,8 +284,9 @@ public class GroupThread extends Thread
 						{
 							if(message.getObjContents().get(1) != null)
 							{
-								String groupName = (String)message.getObjContents().get(0);
-								UserToken yourToken = (UserToken)message.getObjContents().get(1);
+								String groupName = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));
+								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
+								System.out.println("Group: " + groupName);
 
 								List<String> memberList = listMembers(groupName, yourToken);
 								if(memberList != null)
@@ -304,9 +315,12 @@ public class GroupThread extends Thread
 							{
 								if(message.getObjContents().get(2) != null)
 								{
-									String username = (String)message.getObjContents().get(0);
-									String groupName = (String)message.getObjContents().get(1);
-									UserToken yourToken = (UserToken)message.getObjContents().get(2);
+									String username = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));
+									String groupName = new String(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
+									UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(2), sessionKey, IV));
+
+									System.out.println("Username: " + username);
+									System.out.println("Group Name: " + groupName);
 
 									if(addUserToGroup(username, groupName, yourToken))
 									{
@@ -334,9 +348,12 @@ public class GroupThread extends Thread
 							{
 								if(message.getObjContents().get(2) != null)
 								{
-									String username = (String)message.getObjContents().get(0);
-									String groupName = (String)message.getObjContents().get(1);
-									UserToken yourToken = (UserToken)message.getObjContents().get(2);
+									String username = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));
+									String groupName = new String(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
+									UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(2), sessionKey, IV));
+
+									System.out.println("Username: " + username);
+									System.out.println("Group Name: " + groupName);
 
 									if(removeUserFromGroup(username, groupName, yourToken))
 									{
@@ -785,4 +802,12 @@ public class GroupThread extends Thread
 		byte[] byteCipherText = aesCipher.doFinal(plainText);
 		return byteCipherText;
 	}
+
+	public static byte[] decryptAES(byte[] cipherText, Key AESkey, IvParameterSpec IV) throws Exception
+  {
+    Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+    aesCipher.init(Cipher.DECRYPT_MODE, AESkey, IV);
+    byte[] byteText = aesCipher.doFinal(cipherText);
+    return byteText;
+  }
 }
