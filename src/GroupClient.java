@@ -16,6 +16,8 @@ public class GroupClient extends Client implements GroupClientInterface
 	//AES key defined for the connection session with the Group Server
 	//Not even sure if it will work this way but it's worth a shot
 	private Key sessionKey;
+	private IvParameterSpec IV = null;
+	private byte[] aesTok = null;
 
 	 public UserToken getToken(String username, KeyPair userKey)
 	 {
@@ -106,10 +108,10 @@ public class GroupClient extends Client implements GroupClientInterface
 					if (C2.equals(rC2))
 					{
 						byte[] rsaSessionKey = (byte[])response.getObjContents().get(1);
-						byte[] aesTok = (byte[])response.getObjContents().get(2);
+						aesTok = (byte[])response.getObjContents().get(2);
 						byte[] ivBytes = (byte[])response.getObjContents().get(3);
 						// Create IV from ivBytes
-						IvParameterSpec IV = new IvParameterSpec(ivBytes);
+						IV = new IvParameterSpec(ivBytes);
 						// And we have a session key!
 						sessionKey = decryptAESKeyRSA(rsaSessionKey, cPrivKey);
 						// Now retrive the token
@@ -134,13 +136,15 @@ public class GroupClient extends Client implements GroupClientInterface
 
 	 public boolean createUser(String username, UserToken token)
 	 {
+		 Serializer msgSer = new Serializer();
 		 try
 			{
-				Envelope message = null, response = null;
+				Envelope message = null, response = null, eMesg =null;
+				byte[] byteMsg, eByteMsg;
 				//Tell the server to create a user
 				message = new Envelope("CUSER");
-				message.addObject(username); //Add user name string
-				message.addObject(token); //Add the requester's token
+				message.addObject(encryptAES(username.getBytes(), sessionKey, IV)); //Add user name string
+				message.addObject(aesTok); //Add the requester's token
 				output.writeObject(message);
 
 				response = (Envelope)input.readObject();
@@ -169,8 +173,8 @@ public class GroupClient extends Client implements GroupClientInterface
 
 				//Tell the server to delete a user
 				message = new Envelope("DUSER");
-				message.addObject(username); //Add user name
-				message.addObject(token);  //Add requester's token
+				message.addObject(encryptAES(username.getBytes(), sessionKey, IV)); //Add user name
+				message.addObject(aesTok);  //Add requester's token
 				output.writeObject(message);
 
 				response = (Envelope)input.readObject();
@@ -198,8 +202,8 @@ public class GroupClient extends Client implements GroupClientInterface
 				Envelope message = null, response = null;
 				//Tell the server to create a group
 				message = new Envelope("CGROUP");
-				message.addObject(groupname); //Add the group name string
-				message.addObject(token); //Add the requester's token
+				message.addObject(encryptAES(groupname.getBytes(), sessionKey, IV)); //Add the group name string
+				message.addObject(aesTok); //Add the requester's token
 				output.writeObject(message);
 
 				response = (Envelope)input.readObject();
@@ -227,8 +231,8 @@ public class GroupClient extends Client implements GroupClientInterface
 				Envelope message = null, response = null;
 				//Tell the server to delete a group
 				message = new Envelope("DGROUP");
-				message.addObject(groupname); //Add group name string
-				message.addObject(token); //Add requester's token
+				message.addObject(encryptAES(groupname.getBytes(), sessionKey, IV)); //Add the group name string
+				message.addObject(aesTok); //Add the requester's token
 				output.writeObject(message);
 
 				response = (Envelope)input.readObject();
@@ -256,8 +260,8 @@ public class GroupClient extends Client implements GroupClientInterface
 			 Envelope message = null, response = null;
 			 //Tell the server to return the member list
 			 message = new Envelope("LMEMBERS");
-			 message.addObject(group); //Add group name string
-			 message.addObject(token); //Add requester's token
+			 message.addObject(encryptAES(group.getBytes(), sessionKey, IV)); //Add the group name string
+			 message.addObject(aesTok); //Add the requester's token
 			 output.writeObject(message);
 
 			 response = (Envelope)input.readObject();
@@ -287,9 +291,9 @@ public class GroupClient extends Client implements GroupClientInterface
 				Envelope message = null, response = null;
 				//Tell the server to add a user to the group
 				message = new Envelope("AUSERTOGROUP");
-				message.addObject(username); //Add user name string
-				message.addObject(groupname); //Add group name string
-				message.addObject(token); //Add requester's token
+				message.addObject(encryptAES(username.getBytes(), sessionKey, IV)); //Add user name string
+				message.addObject(encryptAES(groupname.getBytes(), sessionKey, IV)); //Add group name string
+				message.addObject(aesTok); //Add requester's token
 				output.writeObject(message);
 
 				response = (Envelope)input.readObject();
@@ -316,9 +320,9 @@ public class GroupClient extends Client implements GroupClientInterface
 				Envelope message = null, response = null;
 				//Tell the server to remove a user from the group
 				message = new Envelope("RUSERFROMGROUP");
-				message.addObject(username); //Add user name string
-				message.addObject(groupname); //Add group name string
-				message.addObject(token); //Add requester's token
+				message.addObject(encryptAES(username.getBytes(), sessionKey, IV)); //Add user name string
+				message.addObject(encryptAES(groupname.getBytes(), sessionKey, IV)); //Add group name string
+				message.addObject(aesTok); //Add requester's token
 				output.writeObject(message);
 
 				response = (Envelope)input.readObject();
@@ -373,6 +377,14 @@ public class GroupClient extends Client implements GroupClientInterface
     byte[] byteText = aesCipher.doFinal(cipherText);
     return byteText;
   }
+
+	public static byte[] encryptAES(byte[] plainText, Key AESkey, IvParameterSpec IV) throws Exception
+	{
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		aesCipher.init(Cipher.ENCRYPT_MODE, AESkey, IV);
+		byte[] byteCipherText = aesCipher.doFinal(plainText);
+		return byteCipherText;
+	}
 
 
 	 //TODO implement encryption and decryption for message passing
