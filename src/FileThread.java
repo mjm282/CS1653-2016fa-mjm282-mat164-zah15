@@ -64,18 +64,50 @@ public class FileThread extends Thread
 			Envelope response = null;
 			response = (Envelope)input.readObject();
 			privKey = my_fs.getPrivateKey();
-			if(response.getMessage().compareTo("OK")==0)
+			if(response.getMessage().equals("OK"))
 			{
+				//get encrypted C1
 				byte[] chal = (byte[])response.getObjContents().get(0);
-				Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
-				rsaCipher.init(Cipher.DECRYPT_MODE, privKey);
-				byte[] byteText = rsaCipher.doFinal(chal);
-				BigInteger plainChal = new BigInteger(byteText);
+				//decrypt C1
+				BigInteger C1 = decryptBIRSA(chal, privKey);
 
 				//Send back plaintext challenge
 				message = new Envelope("OK");
-				message.addObject(plainChal);
+				message.addObject(C1);
 				output.writeObject(message);
+				
+				//wait for a response
+				response = (Envelope)input.readObject();
+				if(response.getMessage().equals("OK"))
+				{
+					byte[] rsaSessionKey = (byte[])response.getObjContents().get(0);
+					byte[] aesTok = (byte[])response.getObjContents().get(1);
+					byte[] ivBytes = (byte[])response.getObjContents().get(2);
+					
+					// Create IV from ivBytes
+					IvParameterSpec IV = new IvParameterSpec(ivBytes);
+					// And we have a session key!
+					sessionKey = decryptAESKeyRSA(rsaSessionKey, privKey);
+					System.out.println("session key: " + sessionKey.toString());
+					
+					// Now retrive the token
+					byte[] serTok = decryptAES(aesTok, sessionKey, IV);
+					// And Deserilize it
+					Serializer mySerializer = new Serializer();
+					uToken = (UserToken)mySerializer.deserialize(serTok);
+					
+					//generate a current timestamp to compare to the one from token
+					long unixTime = System.currentTimeMillis() / 1000L;
+					long tokTime = uToken.getTimestamp();
+					
+					if((unixTime - tokTime) > 600)
+					{
+						System.out.println("Sorry, this token is too old, terminating connection");
+						socket.close();
+						proceed = false;
+					}
+					
+				}
 			}
 			else
 			{
@@ -83,9 +115,10 @@ public class FileThread extends Thread
 				output.writeObject(message);
 			}
 
+			/*
 			//Decrypt toekn and AES key
 			response = (Envelope)input.readObject();
-			if(response.getMessage().compareTo("OK")==0)
+			if(response.getMessage().equals("OK"))
 			{
 				byte[] aesToken = (byte[])response.getObjContents().get(0);
 				byte[] rsaSessionKey = (byte[])response.getObjContents().get(1);
@@ -95,13 +128,14 @@ public class FileThread extends Thread
 				Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
 				rsaCipher.init(Cipher.DECRYPT_MODE, privKey);
 				sessionKey = new SecretKeySpec(rsaCipher.doFinal(rsaSessionKey), "AES");
+				
 
 				Cipher aesCipher = Cipher.getInstance("AES", "BC");
 				aesCipher.init(Cipher.DECRYPT_MODE, sessionKey, vec);
 				uToken = (UserToken)ser.deserialize(aesCipher.doFinal(aesToken));
 
 			}
-
+			*/
 
 			do
 			{
@@ -362,5 +396,38 @@ public class FileThread extends Thread
 			e.printStackTrace(System.err);
 		}
 	}
+	public byte[] encryptChalRSA(BigInteger challenge, Key pubRSAkey) throws Exception
+	{
+		Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+		rsaCipher.init(Cipher.ENCRYPT_MODE, pubRSAkey);
+		byte[] byteCipherText = rsaCipher.doFinal(challenge.toByteArray());
+		return byteCipherText;
+	}
 
+	public BigInteger decryptBIRSA(byte[] cipherText, Key privRSAkey) throws Exception
+  {
+  	Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+  	rsaCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
+  	byte[] byteText = rsaCipher.doFinal(cipherText);
+		BigInteger dcBI = new BigInteger(1, byteText);
+  	return dcBI;
+  }
+
+	public Key decryptAESKeyRSA(byte[] aesKeyCiph, Key privRSAkey) throws Exception
+	{
+		Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+		rsaCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
+		byte[] AESkeyByte = rsaCipher.doFinal(aesKeyCiph);
+		Key AESkey = new SecretKeySpec(AESkeyByte, "AES"); // I hope this works ...
+		return AESkey;
+	}
+
+	// Decrypt for AES
+	public static byte[] decryptAES(byte[] cipherText, Key AESkey, IvParameterSpec IV) throws Exception
+  {
+    Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+    aesCipher.init(Cipher.DECRYPT_MODE, AESkey, IV);
+    byte[] byteText = aesCipher.doFinal(cipherText);
+    return byteText;
+  }
 }

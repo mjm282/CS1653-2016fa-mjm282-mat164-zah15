@@ -86,6 +86,14 @@ public class FileServer extends Server {
 				ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(keyFile));
 				keyOutStream.writeObject(servPair);
 				keyOutStream.close();
+				
+				//calculate SHA-256 hash
+				MessageDigest md = MessageDigest.getInstance("SHA-256");
+				byte[] keyBytes = servPair.getPublic().getEncoded();
+				md.update(keyBytes);
+				byte[] digest = md.digest();
+				String strHash = new String(digest, "UTF-8");
+				System.out.println("SHA-256 Hash of public key is: \n" + strHash);
 			}
 			catch(NoSuchAlgorithmException BCErr)
 			{

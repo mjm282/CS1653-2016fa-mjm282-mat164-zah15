@@ -27,80 +27,80 @@ public class FileClient extends Client implements FileClientInterface {
 	//Wait for challenge to be sent back decrypted, verify it's correct
 		//for security maybe do hash stuff
 	//send token (encrypted with AES key) as well as generated AES key (encrypted with server public key)
-
+	private Key sessionKey;
+	
 	public boolean connect(final String server, final int port, UserToken token) {
+		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
 		try{
 			sock = new Socket(server, port);
 
 			// Set up I/O
 			output = new ObjectOutputStream(sock.getOutputStream());
 			input = new ObjectInputStream(sock.getInputStream());
-
-			Key sessionKey;
-
+			
+			Key sPubKey = null;
+			
 			Envelope message = null, response = null;
 
-			message = (Envelope)input.readObject();
+			//wait for the server to send their public key
+			response = (Envelope)input.readObject();
 
-			if(message.getMessage().compareTo("SHAKE")==0){
-				PublicKey fileKey = (PublicKey)response.getObjContents().get(0);
+			if(response.getMessage().equals("SHAKE")){
+				//get the server's public key
+				sPubKey = (PublicKey)response.getObjContents().get(0);
 				//calculate SHA-256 hash
 				MessageDigest md = MessageDigest.getInstance("SHA-256");
-				byte[] keyBytes = fileKey.getEncoded();
+				byte[] keyBytes = sPubKey.getEncoded();
 				md.update(keyBytes);
 				byte[] digest = md.digest();
-
-				System.out.println("SHA-256 Hash of public key is: " + digest);
+				String strHash = new String(digest, "UTF-8");
+				System.out.println("SHA-256 Hash of public key is: \n" + strHash);
 				System.out.println("Contact File Server to verify.");
-
+				
 				//Genereate challenge for fileserver
 				Random chalRand = new Random();
-				BigInteger chal = new BigInteger(256, chalRand);
-				Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
-				rsaCipher.init(Cipher.ENCRYPT_MODE, fileKey);
-				byte[] cipherBI = rsaCipher.doFinal(chal.toByteArray());
+				BigInteger C1 = new BigInteger(256, chalRand);
+				byte[] ciphC1 = encryptChalRSA(C1, sPubKey);
 
 				//Send encrypted challenge
-				response = new Envelope("OK");
-				response.addObject(cipherBI);
-				output.writeObject(response);
+				message = new Envelope("OK");
+				message.addObject(ciphC1);
+				output.writeObject(message);
 
 				//Receive decrypted challenge
-				message = (Envelope)input.readObject();
-				if(message.getMessage().compareTo("OK")==0)
+				response = (Envelope)input.readObject();
+				if(response.getMessage().equals("OK"))
 				{
-					BigInteger fileChal = (BigInteger)message.getObjContents().get(0);
+					BigInteger rC1 = (BigInteger)response.getObjContents().get(0);
 					//Verify chalenge
-					if(fileChal.equals(chal)) //If challenge matches
+					if(rC1.equals(C1)) //If challenge matches
 					{
 						//Generate AES key
-						KeyGenerator gen = KeyGenerator.getInstance("AES", "BC");
-						gen.init(192);
-						sessionKey = gen.generateKey();
-
-						//Encrpyt token with AES Key
+						sessionKey = genSessionKey();
+						
+						//Encrypt AES key
+						byte[] rsaSessionKey = encryptAESKeyRSA(sessionKey, sPubKey);
+						
+						//serialize token
 						Serializer byteTok = new Serializer();
 						byte[] serTok = byteTok.serialize(token);
+						
+						//generate IV
 						SecureRandom ivRand = new SecureRandom();
 						byte[] ivBytes = new byte[16];
 						ivRand.nextBytes(ivBytes);
-						IvParameterSpec vec = new IvParameterSpec(ivBytes);
-						byte[] aesTok;
-						Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
-						aesCipher.init(Cipher.ENCRYPT_MODE, sessionKey, vec);
-						aesTok = aesCipher.doFinal(serTok); //This is the token encrypted with AES
-
-						//Encrypt AES key
-						byte[] rsaSessionKey;
-						rsaCipher = Cipher.getInstance("RSA", "BC");
-						rsaCipher.init(Cipher.ENCRYPT_MODE, fileKey);
-						rsaSessionKey = rsaCipher.doFinal(sessionKey.getEncoded());
+						IvParameterSpec IV = new IvParameterSpec(ivBytes);
+						
+						//Encrpyt token with AES Key
+						byte[] aesTok = encryptAES(serTok, sessionKey, IV);
 
 						//Send token encrypted with AES key and AES key encrypted with RSA public key
-						response = new Envelope("OK");
-						response.addObject(aesTok);
-						response.addObject(rsaSessionKey);
-						response.addObject(vec);
+						message = new Envelope("OK");
+						message.addObject(rsaSessionKey);//0
+						message.addObject(aesTok);//1
+						message.addObject(ivBytes); //2
+						
+						output.writeObject(message);
 						
 
 					}
@@ -337,5 +337,46 @@ public class FileClient extends Client implements FileClientInterface {
 				}
 		 return true;
 	}
+	
+	public byte[] encryptChalRSA(BigInteger challenge, Key pubRSAkey) throws Exception
+  {
+  	Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+  	rsaCipher.init(Cipher.ENCRYPT_MODE, pubRSAkey);
+  	byte[] byteCipherText = rsaCipher.doFinal(challenge.toByteArray());
+  	return byteCipherText;
+  }
 
+	public byte[] encryptAESKeyRSA(Key aesKey, Key pubRSAkey) throws Exception
+	{
+		Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+  	rsaCipher.init(Cipher.ENCRYPT_MODE, pubRSAkey);
+  	byte[] byteCipherText = rsaCipher.doFinal(aesKey.getEncoded());
+  	return byteCipherText;
+	}
+
+  public BigInteger decryptBIRSA(byte[] cipherText, Key privRSAkey) throws Exception
+  {
+  	Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+  	rsaCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
+  	byte[] byteText = rsaCipher.doFinal(cipherText);
+		BigInteger dcBI = new BigInteger(1, byteText);
+  	return dcBI;
+  }
+
+	// AES Key (Turley)
+	public Key genSessionKey() throws Exception
+	{
+		KeyGenerator generator = KeyGenerator.getInstance("AES", "BC");
+		generator.init(128);
+		Key myAESkey = generator.generateKey();
+		return myAESkey;
+	}
+
+	public static byte[] encryptAES(byte[] plainText, Key AESkey, IvParameterSpec IV) throws Exception
+	{
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		aesCipher.init(Cipher.ENCRYPT_MODE, AESkey, IV);
+		byte[] byteCipherText = aesCipher.doFinal(plainText);
+		return byteCipherText;
+	}
 }
