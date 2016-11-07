@@ -299,7 +299,7 @@ public class GroupThread extends Thread
 								if(memberList != null)
 								{
 									response = new Envelope("OK");
-									response.addObject(memberList);
+									response.addObject(encryptAES(mySerializer.serialize(memberList), sessionKey, IV));
 								}
 							}
 						}

@@ -255,6 +255,7 @@ public class GroupClient extends Client implements GroupClientInterface
 	 @SuppressWarnings("unchecked")
 	public List<String> listMembers(String group, UserToken token)
 	 {
+		 Serializer mySerializer = new Serializer();
 		 try
 		 {
 			 Envelope message = null, response = null;
@@ -269,8 +270,11 @@ public class GroupClient extends Client implements GroupClientInterface
 			 //If server indicates success, return the member list
 			 if(response.getMessage().equals("OK"))
 			 {
-				List<String> ret = new ArrayList<String>((List<String>)response.getObjContents().get(0));
-				return (List<String>)response.getObjContents().get(0); //This cast creates compiler warnings. Sorry.
+				 // Not needed
+				// List<String> ret = new ArrayList<String>((List<String>)response.getObjContents().get(0));
+				// Decrypt and return
+				// String groupName = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));
+				return (List<String>)mySerializer.deserialize(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV));
 			 }
 
 			 return null;
