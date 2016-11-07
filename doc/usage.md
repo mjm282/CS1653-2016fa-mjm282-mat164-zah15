@@ -4,7 +4,7 @@
 
 To start the Group Server:
  - Enter the directory containing `RunGroupServer.class`
- - Type `java RunGroupServer [port number]`
+ - Type `java -cp  ".;bcprov-jdk15on-155" RunGroupServer [port number]`
 
 Note that the port number argument to `RunGroupServer` is optional.  This argument specifies the port that the Group Server will listen to.  If unspecified, it defaults to port 8765.
 
@@ -16,7 +16,7 @@ To shut down the server simply press `ctrl-C`.
 
 To start the File Server:
  - Enter the directory containing `RunFileServer.class`
- - Type `java RunFileServer [port number]`
+ - Type `java -cp  ".;bcprov-jdk15on-155" RunFileServer [port number]`
 
 Note that the port number argument to `RunFileServer` is optional.  This argument speficies the port that the File Server will list to. If unspecified, it defaults to port 4321.
 
@@ -34,7 +34,7 @@ Delete the `FileList.bin` file and the `shared_files/` directory to reset the Fi
 
 To start the driver:
  - Enter the directory containing `driver.class`
- - Type `java driver`
+ - Type `java -cp  ".;bcprov-jdk15on-155" driver`
 
 Note that a group server and file server must both be running and using separate ports to properly use the driver program.
 
