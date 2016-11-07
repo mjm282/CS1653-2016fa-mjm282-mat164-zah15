@@ -28,7 +28,11 @@ public class FileClient extends Client implements FileClientInterface {
 		//for security maybe do hash stuff
 	//send token (encrypted with AES key) as well as generated AES key (encrypted with server public key)
 	private Key sessionKey;
-	
+	private IvParameterSpec IV = null;
+	private byte[] aesTok = null;
+
+	private Serializer ser = new Serializer();
+
 	public boolean connect(final String server, final int port, UserToken token) {
 		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
 		try{
@@ -37,9 +41,9 @@ public class FileClient extends Client implements FileClientInterface {
 			// Set up I/O
 			output = new ObjectOutputStream(sock.getOutputStream());
 			input = new ObjectInputStream(sock.getInputStream());
-			
+
 			Key sPubKey = null;
-			
+
 			Envelope message = null, response = null;
 
 			//wait for the server to send their public key
@@ -59,7 +63,7 @@ public class FileClient extends Client implements FileClientInterface {
 					System.out.print(digest[i]);
 				}
 				System.out.println("\nContact File Server to verify.");
-				
+
 				//Genereate challenge for fileserver
 				Random chalRand = new Random();
 				BigInteger C1 = new BigInteger(256, chalRand);
@@ -80,31 +84,31 @@ public class FileClient extends Client implements FileClientInterface {
 					{
 						//Generate AES key
 						sessionKey = genSessionKey();
-						
+
 						//Encrypt AES key
 						byte[] rsaSessionKey = encryptAESKeyRSA(sessionKey, sPubKey);
-						
+
 						//serialize token
 						Serializer byteTok = new Serializer();
 						byte[] serTok = byteTok.serialize(token);
-						
+
 						//generate IV
 						SecureRandom ivRand = new SecureRandom();
 						byte[] ivBytes = new byte[16];
 						ivRand.nextBytes(ivBytes);
-						IvParameterSpec IV = new IvParameterSpec(ivBytes);
-						
+						IV = new IvParameterSpec(ivBytes);
+
 						//Encrpyt token with AES Key
-						byte[] aesTok = encryptAES(serTok, sessionKey, IV);
+						aesTok = encryptAES(serTok, sessionKey, IV);
 
 						//Send token encrypted with AES key and AES key encrypted with RSA public key
 						message = new Envelope("OK");
 						message.addObject(rsaSessionKey);//0
 						message.addObject(aesTok);//1
 						message.addObject(ivBytes); //2
-						
+
 						output.writeObject(message);
-						
+
 
 					}
 					else
@@ -125,7 +129,7 @@ public class FileClient extends Client implements FileClientInterface {
 	}
 
 	public boolean delete(String filename, UserToken token) {
-		String remotePath;
+		String remotePath = "";
 		if (filename.charAt(0)=='/') {
 			remotePath = filename.substring(1);
 		}
@@ -133,8 +137,12 @@ public class FileClient extends Client implements FileClientInterface {
 			remotePath = filename;
 		}
 		Envelope env = new Envelope("DELETEF"); //Success
-	    env.addObject(remotePath);
-	    env.addObject(token);
+			try {
+				env.addObject(encryptAES(remotePath.getBytes(), sessionKey, IV));
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+	    env.addObject(aesTok);
 	    try {
 			output.writeObject(env);
 		    env = (Envelope)input.readObject();
@@ -159,7 +167,6 @@ public class FileClient extends Client implements FileClientInterface {
 				if (sourceFile.charAt(0)=='/') {
 					sourceFile = sourceFile.substring(1);
 				}
-
 				File file = new File(destFile);
 			    try {
 
@@ -169,14 +176,23 @@ public class FileClient extends Client implements FileClientInterface {
 					    FileOutputStream fos = new FileOutputStream(file);
 
 					    Envelope env = new Envelope("DOWNLOADF"); //Success
-					    env.addObject(sourceFile);
-					    env.addObject(token);
+							try {
+								env.addObject(encryptAES(sourceFile.getBytes(), sessionKey, IV));
+							} catch (Exception e) {
+								e.printStackTrace();
+							}
+					    env.addObject(aesTok);
 					    output.writeObject(env);
 
 					    env = (Envelope)input.readObject();
 
 						while (env.getMessage().compareTo("CHUNK")==0) {
-								fos.write((byte[])env.getObjContents().get(0), 0, (Integer)env.getObjContents().get(1));
+								try
+								{
+									fos.write((byte[])decryptAES((byte[])env.getObjContents().get(0), sessionKey, IV), 0, (Integer)ser.deserialize(decryptAES((byte[])env.getObjContents().get(1), sessionKey, IV)));
+								} catch (Exception e) {
+									e.printStackTrace();
+								}
 								System.out.printf(".");
 								env = new Envelope("DOWNLOADF"); //Success
 								output.writeObject(env);
@@ -223,7 +239,11 @@ public class FileClient extends Client implements FileClientInterface {
 			 Envelope message = null, e = null;
 			 //Tell the server to return the member list
 			 message = new Envelope("LFILES");
-			 message.addObject(token); //Add requester's token
+
+			 Serializer byteTok = new Serializer();
+			 byte[] serTok = byteTok.serialize(token);
+			 aesTok = encryptAES(serTok, sessionKey, IV);
+			 message.addObject(aesTok); //Add requester's encrypted token
 			 output.writeObject(message);
 
 			 e = (Envelope)input.readObject();
@@ -231,7 +251,7 @@ public class FileClient extends Client implements FileClientInterface {
 			 //If server indicates success, return the member list
 			 if(e.getMessage().equals("OK"))
 			 {
-				return (List<String>)e.getObjContents().get(0); //This cast creates compiler warnings. Sorry.
+				return (List<String>)ser.deserialize(decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV)); //This cast creates compiler warnings. Sorry.
 			 }
 
 			 return null;
@@ -258,9 +278,12 @@ public class FileClient extends Client implements FileClientInterface {
 			 Envelope message = null, env = null;
 			 //Tell the server to return the member list
 			 message = new Envelope("UPLOADF");
-			 message.addObject(destFile);
-			 message.addObject(group);
-			 message.addObject(token); //Add requester's token
+			//  Serializer byteTok = new Serializer();
+			//  byte[] serTok = byteTok.serialize(token);
+			//  aesTok = encryptAES(serTok, sessionKey, IV);
+			 message.addObject(encryptAES(destFile.getBytes(), sessionKey, IV));
+			 message.addObject(encryptAES(group.getBytes(), sessionKey, IV));
+			 message.addObject(aesTok); //Add requester's token
 			 output.writeObject(message);
 
 
@@ -296,8 +319,12 @@ public class FileClient extends Client implements FileClientInterface {
 						return false;
 					}
 
-					message.addObject(buf);
-					message.addObject(new Integer(n));
+					message.addObject(encryptAES(buf, sessionKey, IV));
+					Integer nSend = new Integer(n);
+					Serializer nByte = new Serializer();
+					byte[] nSer = nByte.serialize(nSend);
+					byte[] nAES = encryptAES(nSer, sessionKey, IV);
+					message.addObject(nAES);
 
 					output.writeObject(message);
 
@@ -340,7 +367,7 @@ public class FileClient extends Client implements FileClientInterface {
 				}
 		 return true;
 	}
-	
+
 	public byte[] encryptChalRSA(BigInteger challenge, Key pubRSAkey) throws Exception
   {
   	Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
@@ -381,5 +408,13 @@ public class FileClient extends Client implements FileClientInterface {
 		aesCipher.init(Cipher.ENCRYPT_MODE, AESkey, IV);
 		byte[] byteCipherText = aesCipher.doFinal(plainText);
 		return byteCipherText;
+	}
+
+	public static byte[] decryptAES(byte[] cipherText, Key AESkey, IvParameterSpec IV) throws Exception
+	{
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		aesCipher.init(Cipher.DECRYPT_MODE, AESkey, IV);
+		byte[] byteText = aesCipher.doFinal(cipherText);
+		return byteText;
 	}
 }

@@ -32,12 +32,13 @@ public class FileThread extends Thread
 	public void run()
 	{
 		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-		Key sessionKey;
+		Key sessionKey = null;
+		IvParameterSpec IV = null;
 		UserToken uToken;
 		Key privKey;
-		
+
 		Serializer ser = new Serializer();
-		
+
 		//TODO file auth
 		//send public key in plain text
 			//in fileclient they will calculate the sha256 hash of the key
@@ -75,7 +76,7 @@ public class FileThread extends Thread
 				message = new Envelope("OK");
 				message.addObject(C1);
 				output.writeObject(message);
-				
+
 				//wait for a response
 				response = (Envelope)input.readObject();
 				if(response.getMessage().equals("OK"))
@@ -83,30 +84,30 @@ public class FileThread extends Thread
 					byte[] rsaSessionKey = (byte[])response.getObjContents().get(0);
 					byte[] aesTok = (byte[])response.getObjContents().get(1);
 					byte[] ivBytes = (byte[])response.getObjContents().get(2);
-					
+
 					// Create IV from ivBytes
-					IvParameterSpec IV = new IvParameterSpec(ivBytes);
+					IV = new IvParameterSpec(ivBytes);
 					// And we have a session key!
 					sessionKey = decryptAESKeyRSA(rsaSessionKey, privKey);
 					System.out.println("session key: " + sessionKey.toString());
-					
+
 					// Now retrive the token
 					byte[] serTok = decryptAES(aesTok, sessionKey, IV);
 					// And Deserilize it
 					Serializer mySerializer = new Serializer();
 					uToken = (UserToken)mySerializer.deserialize(serTok);
-					
+
 					//generate a current timestamp to compare to the one from token
 					long unixTime = System.currentTimeMillis() / 1000L;
 					long tokTime = uToken.getTimestamp();
-					
+
 					if((unixTime - tokTime) > 600)
 					{
 						System.out.println("Sorry, this token is too old, terminating connection");
 						socket.close();
 						proceed = false;
 					}
-					
+
 				}
 			}
 			else
@@ -128,7 +129,7 @@ public class FileThread extends Thread
 				Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
 				rsaCipher.init(Cipher.DECRYPT_MODE, privKey);
 				sessionKey = new SecretKeySpec(rsaCipher.doFinal(rsaSessionKey), "AES");
-				
+
 
 				Cipher aesCipher = Cipher.getInstance("AES", "BC");
 				aesCipher.init(Cipher.DECRYPT_MODE, sessionKey, vec);
@@ -160,7 +161,8 @@ public class FileThread extends Thread
 						else
 						{
 							// Extract user token
-							UserToken workingToken = (UserToken)e.getObjContents().get(0);
+							UserToken workingToken = (UserToken)ser.deserialize(decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV));
+
 							// Lists of Files
 							List<ShareFile> allFiles = FileServer.fileList.getFiles(); // Full file list from server
 							List<String> userFiles = new ArrayList<String>(); // List of user's files
@@ -177,7 +179,9 @@ public class FileThread extends Thread
 							}
 
 							response = new Envelope("OK"); // Set the response to indicate success
-							response.addObject(userFiles); // Append the file list the responce
+							byte[] serFile = ser.serialize(userFiles);
+							byte[] aesFile = encryptAES(serFile, sessionKey, IV);
+							response.addObject(aesFile); // Append the file list the responce
 						}
 					}
 					output.writeObject(response); // Send back any responce
@@ -201,9 +205,9 @@ public class FileThread extends Thread
 							response = new Envelope("FAIL-BADTOKEN");
 						}
 						else {
-							String remotePath = (String)e.getObjContents().get(0);
-							String group = (String)e.getObjContents().get(1);
-							UserToken yourToken = (UserToken)e.getObjContents().get(2); //Extract token
+							String remotePath =  new String(decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV));
+							String group =  new String(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV));
+							UserToken yourToken = (UserToken)ser.deserialize(decryptAES((byte[])e.getObjContents().get(2), sessionKey, IV)); //Extract token
 
 							if (FileServer.fileList.checkFile(remotePath)) {
 								System.out.printf("Error: file already exists at %s\n", remotePath);
@@ -224,7 +228,7 @@ public class FileThread extends Thread
 
 								e = (Envelope)input.readObject();
 								while (e.getMessage().compareTo("CHUNK")==0) {
-									fos.write((byte[])e.getObjContents().get(0), 0, (Integer)e.getObjContents().get(1));
+									fos.write((byte[])decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV), 0, (Integer)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV)));
 									response = new Envelope("READY"); //Success
 									output.writeObject(response);
 									e = (Envelope)input.readObject();
@@ -248,8 +252,8 @@ public class FileThread extends Thread
 				}
 				else if (e.getMessage().compareTo("DOWNLOADF")==0) {
 
-					String remotePath = (String)e.getObjContents().get(0);
-					Token t = (Token)e.getObjContents().get(1);
+					String remotePath = new String(decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV));
+					Token t = (Token)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV));
 					ShareFile sf = FileServer.fileList.getFile("/"+remotePath);
 					if (sf == null) {
 						System.out.printf("Error: File %s doesn't exist\n", remotePath);
@@ -292,8 +296,11 @@ public class FileThread extends Thread
 								}
 
 
-								e.addObject(buf);
-								e.addObject(new Integer(n));
+								e.addObject(encryptAES(buf, sessionKey, IV));
+								Integer nSend = new Integer(n);
+								byte[] nSer = ser.serialize(nSend);
+								byte[] nAES = encryptAES(nSer, sessionKey, IV);
+								e.addObject(nAES);
 
 								output.writeObject(e);
 
@@ -326,6 +333,7 @@ public class FileThread extends Thread
 								System.out.printf("Upload failed: %s\n", e.getMessage());
 
 							}
+							fis.close();
 						}
 						}
 						catch(Exception e1)
@@ -338,8 +346,8 @@ public class FileThread extends Thread
 				}
 				else if (e.getMessage().compareTo("DELETEF")==0) {
 
-					String remotePath = (String)e.getObjContents().get(0);
-					Token t = (Token)e.getObjContents().get(1);
+					String remotePath = new String(decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV));
+					Token t = (Token)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV));
 					ShareFile sf = FileServer.fileList.getFile("/"+remotePath);
 					if (sf == null) {
 						System.out.printf("Error: File %s doesn't exist\n", remotePath);
@@ -430,4 +438,12 @@ public class FileThread extends Thread
     byte[] byteText = aesCipher.doFinal(cipherText);
     return byteText;
   }
+
+	public static byte[] encryptAES(byte[] plainText, Key AESkey, IvParameterSpec IV) throws Exception
+	{
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		aesCipher.init(Cipher.ENCRYPT_MODE, AESkey, IV);
+		byte[] byteCipherText = aesCipher.doFinal(plainText);
+		return byteCipherText;
+	}
 }
