@@ -186,9 +186,13 @@ public class GroupThread extends Thread
 								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES(eToken, sessionKey, IV));
 								System.out.println("Create User: " + username);
 
-								if(createUser(username, yourToken))
+								if (yourToken.verifySignature())
 								{
-									response = new Envelope("OK"); //Success
+								  System.out.println("Token Verified");
+									if(createUser(username, yourToken))
+									{
+										response = new Envelope("OK"); //Success
+									}
 								}
 							}
 						}
@@ -213,9 +217,13 @@ public class GroupThread extends Thread
 								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
 								System.out.println("Del User: " + username);
 
-								if(deleteUser(username, yourToken))
+								if (yourToken.verifySignature())
 								{
-									response = new Envelope("OK"); //Success
+								  System.out.println("Token Verified");
+									if(deleteUser(username, yourToken))
+									{
+										response = new Envelope("OK"); //Success
+									}
 								}
 							}
 						}
@@ -240,9 +248,13 @@ public class GroupThread extends Thread
 								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
 								System.out.println("Create Group: " + groupName);
 
-								if(createGroup(groupName, yourToken))
+								if (yourToken.verifySignature())
 								{
-									response = new Envelope("OK");
+								  System.out.println("Token Verified");
+									if(createGroup(groupName, yourToken))
+									{
+										response = new Envelope("OK");
+									}
 								}
 							}
 						}
@@ -268,9 +280,13 @@ public class GroupThread extends Thread
 								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
 								System.out.println("Delete Group: " + groupName);
 
-								if(deleteGroup(groupName, yourToken))
+								if (yourToken.verifySignature())
 								{
-									response = new Envelope("OK");
+								  System.out.println("Token Verified");
+									if(deleteGroup(groupName, yourToken))
+									{
+										response = new Envelope("OK");
+									}
 								}
 							}
 						}
@@ -295,11 +311,15 @@ public class GroupThread extends Thread
 								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
 								System.out.println("Group: " + groupName);
 
-								List<String> memberList = listMembers(groupName, yourToken);
-								if(memberList != null)
+								if (yourToken.verifySignature())
 								{
-									response = new Envelope("OK");
-									response.addObject(encryptAES(mySerializer.serialize(memberList), sessionKey, IV));
+								  System.out.println("Token Verified");
+									List<String> memberList = listMembers(groupName, yourToken);
+									if(memberList != null)
+									{
+										response = new Envelope("OK");
+										response.addObject(encryptAES(mySerializer.serialize(memberList), sessionKey, IV));
+									}
 								}
 							}
 						}
@@ -329,9 +349,13 @@ public class GroupThread extends Thread
 									System.out.println("Username: " + username);
 									System.out.println("Group Name: " + groupName);
 
-									if(addUserToGroup(username, groupName, yourToken))
+									if (yourToken.verifySignature())
 									{
-										response = new Envelope("OK");
+									  System.out.println("Token Verified");
+										if(addUserToGroup(username, groupName, yourToken))
+										{
+											response = new Envelope("OK");
+										}
 									}
 								}
 							}
@@ -362,11 +386,14 @@ public class GroupThread extends Thread
 									System.out.println("Username: " + username);
 									System.out.println("Group Name: " + groupName);
 
-									if(removeUserFromGroup(username, groupName, yourToken))
+									if (yourToken.verifySignature())
 									{
-										response = new Envelope("OK");
+									  System.out.println("Token Verified");
+										if(removeUserFromGroup(username, groupName, yourToken))
+										{
+											response = new Envelope("OK");
+										}
 									}
-
 								}
 							}
 						}
