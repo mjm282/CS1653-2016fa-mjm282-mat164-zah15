@@ -53,9 +53,12 @@ public class FileClient extends Client implements FileClientInterface {
 				byte[] keyBytes = sPubKey.getEncoded();
 				md.update(keyBytes);
 				byte[] digest = md.digest();
-				String strHash = new String(digest, "UTF-8");
-				System.out.println("SHA-256 Hash of public key is: \n" + strHash);
-				System.out.println("Contact File Server to verify.");
+				System.out.println("SHA-256 Hash of public key is:");
+				for(int i = 0; i < digest.length; i++)
+				{
+					System.out.print(digest[i]);
+				}
+				System.out.println("\nContact File Server to verify.");
 				
 				//Genereate challenge for fileserver
 				Random chalRand = new Random();

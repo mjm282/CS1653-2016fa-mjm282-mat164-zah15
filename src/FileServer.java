@@ -92,8 +92,12 @@ public class FileServer extends Server {
 				byte[] keyBytes = servPair.getPublic().getEncoded();
 				md.update(keyBytes);
 				byte[] digest = md.digest();
-				String strHash = new String(digest, "UTF-8");
-				System.out.println("SHA-256 Hash of public key is: \n" + strHash);
+				System.out.println("SHA-256 Hash of public key is:");
+				for(int i = 0; i < digest.length; i++)
+				{
+					System.out.print(digest[i]);
+				}
+				System.out.println();
 			}
 			catch(NoSuchAlgorithmException BCErr)
 			{
