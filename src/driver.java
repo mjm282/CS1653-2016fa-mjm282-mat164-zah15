@@ -96,6 +96,18 @@ public class driver
 			System.exit(0);
 		}
 		System.out.println("Your Groups: " + yourToken.getGroups());
+		if (yourToken.verifySignature())
+		{
+			System.out.println("Your Token is Valid");
+		}
+		else if (!yourToken.verifySignature())
+		{
+			System.out.println("Your Token is Valid");
+		}
+		else
+		{
+			System.out.println("An Error Occured While Verifing Your Token");
+		}
 
 		do
 		{

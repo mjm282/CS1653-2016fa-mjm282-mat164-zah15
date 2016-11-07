@@ -79,7 +79,7 @@ public class GroupServer extends Server
 					ObjectOutputStream keyOutStream = new ObjectOutputStream(new FileOutputStream(keyFile));
 					keyOutStream.writeObject(servPair);
 					keyOutStream.close();
-					
+
 					keyOutStream = new ObjectOutputStream(new FileOutputStream(pubFile));
 					keyOutStream.writeObject(servPair.getPublic());
 					keyOutStream.close();
@@ -145,7 +145,7 @@ public class GroupServer extends Server
 				adminKeyGen.initialize(2048);
 				KeyPair adminPair = adminKeyGen.generateKeyPair();
 				userList.addUser(username, adminPair.getPublic());
-				
+
 				//store's admin's keypair to disk
 				String admPath = username + ".bin";
 				//writes the keypair for storage
@@ -274,14 +274,14 @@ public class GroupServer extends Server
 
 	}
 
-	public Key getPublicKey() {
+	public PublicKey getPublicKey() {
 		// Function to get the public key
-		Key servPubKey = servPair.getPublic();
+		PublicKey servPubKey = servPair.getPublic();
 		return servPubKey;
 	}
 
-	public Key getPrivateKey() {
-		Key servPrivateKey = servPair.getPrivate();
+	public PrivateKey getPrivateKey() {
+		PrivateKey servPrivateKey = servPair.getPrivate();
 		return servPrivateKey;
 
 	}
