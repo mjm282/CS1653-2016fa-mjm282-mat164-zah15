@@ -44,5 +44,8 @@ public interface UserToken extends java.io.Serializable
      */
     public List<String> getGroups();
 
+    // Verify Signiture
+    public boolean verifySignature();
+
     public long getTimestamp();
 }   //-- end interface UserToken
