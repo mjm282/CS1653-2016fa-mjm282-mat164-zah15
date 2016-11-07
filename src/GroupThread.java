@@ -72,6 +72,13 @@ public class GroupThread extends Thread
 						// Start of Turley Doing things
 						// Look up user's public key
 						PublicKey userKey = my_gs.userList.getUserKey(username);
+						if (userKey == null)
+						{
+							response = new Envelope("FAIL");
+							output.writeObject(response);
+							System.out.println(username + "'s Key Does Not Exist");
+							return;
+						}
 						// Create BigInteger challenge
 						// We need it to be random
 						Random chalRand = new Random();
