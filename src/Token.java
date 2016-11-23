@@ -1,7 +1,6 @@
-import java.util.List;
+import java.util.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.lang.StringBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import java.security.*;
@@ -9,44 +8,39 @@ import javax.crypto.*;
 
 public class Token implements UserToken
 {
-	private String sName; //the name of the Server
-	private String uName; //the name of the User
-	private long timeStamp;
+	private String gServer; // The issuing Group Server
+	private String fServer; // The valid for File Se
+	private String userName; //the name of the User
 	private List<String> uGroups; //a list of the User's groups
-	private byte[] sig;
-	private PublicKey sPubKey;
+	private long timeStamp; // The time the token was issued
+	private byte[] sig;  // The digital signature of the token, to prevent modification
 
 	//basic constructor for Token, sets the server name, username, and a list of the user's groups
-	public Token(String s, String u, List<String> g, PrivateKey prK, PublicKey puK)
+	public Token(String gServ, String uName, List<String> groups, PrivateKey prK, String fServ)
 	{
-		setServer(s);
-		setUser(u);
-		setGroups(g);
+		setGServer(gServ);
+		setFServer(fServ);
+		setUser(uName);
+		setGroups(groups);
 		setTimestamp();
 		setSign(prK);
-		setPublicKey(puK);
-	}
-
-	// Stuff For Sign
-	private void setPublicKey(PublicKey puK)
-	{
-		sPubKey = puK;
 	}
 
 	private void setSign(PrivateKey sPrivKey)
 	{
-		Security.addProvider(new BouncyCastleProvider());
 		StringBuilder mySign = new StringBuilder();
-		mySign.append(sName);
-		mySign.append(uName);
-		mySign.append(timeStamp);
+		mySign.append(gServer);
+		mySign.append(fServer);
+		mySign.append(userName);
+		Collections.sort(uGroups); // Sort uGroups
 		mySign.append(uGroups);
+		mySign.append(timeStamp);
+		String myString = mySign.toString(); // Our Comparison Point
 		try
 		{
-			String myString = mySign.toString();
 			Signature signature = Signature.getInstance("SHA256withRSA", "BC");
 			signature.initSign(sPrivKey, new SecureRandom());
-	    signature.update(myString.getBytes());
+	    	signature.update(myString.toString().getBytes());
 			sig = signature.sign();
 		}
 		catch (Exception e)
@@ -55,22 +49,24 @@ public class Token implements UserToken
 		}
 	}
 
-	public boolean verifySignature()
+	public boolean verifySignature(PublicKey sPubKey)
 	{
 		Security.addProvider(new BouncyCastleProvider());
 		// Build the StringBuilder
 		StringBuilder mySign = new StringBuilder();
-		mySign.append(sName);
-		mySign.append(uName);
-		mySign.append(timeStamp);
+		mySign.append(gServer);
+		mySign.append(fServer);
+		mySign.append(userName);
+		Collections.sort(uGroups); // Sort uGroups
 		mySign.append(uGroups);
+		mySign.append(timeStamp);
 		String myString = mySign.toString(); // Our Comparison Point
 		try
 		{
 			// And that stuff for the signiture
 			Signature signature = Signature.getInstance("SHA256withRSA", "BC");
 			signature.initVerify(sPubKey);
-	    signature.update(myString.getBytes());
+	    	signature.update(myString.getBytes());
 			 if(signature.verify(sig))
 			 {
 				 return true;
@@ -90,14 +86,19 @@ public class Token implements UserToken
 
 
 	//setters and getters for the class
-	private void setServer(String name)
+	private void setGServer(String name)
 	{
-		sName = name;
+		gServer = name;
+	}
+	
+	private void setFServer(String name)
+	{
+		fServer = name;
 	}
 
 	private void setUser(String name)
 	{
-		uName = name;
+		userName = name;
 	}
 
 	private void setGroups(List<String> names)
@@ -131,7 +132,7 @@ public class Token implements UserToken
 		if(uGroups.indexOf(g) != -1)
 		{
 			uGroups.remove(g);
-			setSign(sPrivKey);
+			setSign(sPrivKey); // Update signature 
 			return true;
 		}
 		else return false;
@@ -141,13 +142,19 @@ public class Token implements UserToken
 	//returns the server name
 	public String getIssuer()
 	{
-		return sName;
+		return gServer;
+	}
+	
+	// Need to get the valid File Server
+	public String getIssuee()
+	{
+		return fServer;
 	}
 
 	//returns the user's username
 	public String getSubject()
 	{
-		return uName;
+		return userName;
 	}
 
 	//returns all of the groups that the user is in
