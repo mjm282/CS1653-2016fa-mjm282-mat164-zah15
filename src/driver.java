@@ -73,7 +73,6 @@ public class driver
 		System.out.println("Please enter the port of your File Server (default 4321)");
 		int filePort = scan.nextInt();
 
-
 		String groupCommand;
 		ArrayList<String> gcArr = new ArrayList<String>();
 
@@ -85,7 +84,7 @@ public class driver
 
 		System.out.println("Please enter your username");
 		username = scan.next();
-		yourToken = gClient.getToken(username, clientPair);
+		yourToken = gClient.getToken(username, clientPair, fileAddress);
 
 
 		if(yourToken == null)
@@ -96,25 +95,13 @@ public class driver
 			System.exit(0);
 		}
 		System.out.println("Your Groups: " + yourToken.getGroups());
-		if (yourToken.verifySignature())
-		{
-			System.out.println("Your Token is Valid");
-		}
-		else if (!yourToken.verifySignature())
-		{
-			System.out.println("Your Token is Valid");
-		}
-		else
-		{
-			System.out.println("An Error Occured While Verifing Your Token");
-		}
-
+		System.out.println("Token Valid for: " + yourToken.getIssuee());
 		do
 		{
 
 			try
 			{
-				fClient.connect(fileAddress, filePort, yourToken);
+				fClient.connect(fileAddress, filePort, yourToken, gClient.getGSkey());
 				//Thread.sleep(5000);
 			}
 			catch(Exception e){

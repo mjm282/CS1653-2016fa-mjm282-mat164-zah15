@@ -22,6 +22,7 @@ public class FileThread extends Thread
 {
 	private final Socket socket;
 	private FileServer my_fs;
+	private PublicKey gsPubKey = null;
 
 	public FileThread(Socket _socket, FileServer _fs)
 	{
@@ -84,6 +85,7 @@ public class FileThread extends Thread
 					byte[] rsaSessionKey = (byte[])response.getObjContents().get(0);
 					byte[] aesTok = (byte[])response.getObjContents().get(1);
 					byte[] ivBytes = (byte[])response.getObjContents().get(2);
+					gsPubKey = (PublicKey)response.getObjContents().get(3);
 
 					// Create IV from ivBytes
 					IV = new IvParameterSpec(ivBytes);
@@ -177,7 +179,7 @@ public class FileThread extends Thread
 									}
 								}
 							}
-							if(workingToken.verifySignature())
+							if(workingToken.verifySignature(gsPubKey))
 							{
 								System.out.println("Token Verified");
 								response = new Envelope("OK"); // Set the response to indicate success
@@ -221,7 +223,7 @@ public class FileThread extends Thread
 								response = new Envelope("FAIL-UNAUTHORIZED"); //Success
 							}
 							else  {
-								if (yourToken.verifySignature())
+								if (yourToken.verifySignature(gsPubKey))
 								{
 									System.out.println("Token Verified");
 
@@ -286,7 +288,7 @@ public class FileThread extends Thread
 
 						}
 						else {
-							if(t.verifySignature())
+							if(t.verifySignature(gsPubKey))
 							{
 								System.out.println("Token Verified");
 
@@ -374,7 +376,7 @@ public class FileThread extends Thread
 
 						try
 						{
-							if(t.verifySignature())
+							if(t.verifySignature(gsPubKey))
 							{
 								System.out.println("Token Verified");
 								File f = new File("shared_files/"+"_"+remotePath.replace('/', '_'));

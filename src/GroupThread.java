@@ -49,6 +49,7 @@ public class GroupThread extends Thread
 				if(message.getMessage().equals("GET"))//Client wants a token
 				{
 					String username = (String)message.getObjContents().get(0); //Get the username
+					String fServer = (String)message.getObjContents().get(1); //Get the File Server Name
 					if(username == null)
 					{
 						response = new Envelope("FAIL");
@@ -98,7 +99,7 @@ public class GroupThread extends Thread
 						{
 							System.out.println("C1 Verified");
 							// Checking token exist before doing all the challange work
-							UserToken yourToken = createToken(username);
+							UserToken yourToken = createToken(username, fServer);
 							if(yourToken != null)
 							{
 								System.out.println("Found Token");
@@ -186,7 +187,7 @@ public class GroupThread extends Thread
 								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES(eToken, sessionKey, IV));
 								System.out.println("Create User: " + username);
 
-								if (yourToken.verifySignature())
+								if (yourToken.verifySignature(my_gs.getPublicKey()))
 								{
 								  System.out.println("Token Verified");
 									if(createUser(username, yourToken))
@@ -217,7 +218,7 @@ public class GroupThread extends Thread
 								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
 								System.out.println("Del User: " + username);
 
-								if (yourToken.verifySignature())
+								if (yourToken.verifySignature(my_gs.getPublicKey()))
 								{
 								  System.out.println("Token Verified");
 									if(deleteUser(username, yourToken))
@@ -248,7 +249,7 @@ public class GroupThread extends Thread
 								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
 								System.out.println("Create Group: " + groupName);
 
-								if (yourToken.verifySignature())
+								if (yourToken.verifySignature(my_gs.getPublicKey()))
 								{
 								  System.out.println("Token Verified");
 									if(createGroup(groupName, yourToken))
@@ -280,7 +281,7 @@ public class GroupThread extends Thread
 								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
 								System.out.println("Delete Group: " + groupName);
 
-								if (yourToken.verifySignature())
+								if (yourToken.verifySignature(my_gs.getPublicKey()))
 								{
 								  System.out.println("Token Verified");
 									if(deleteGroup(groupName, yourToken))
@@ -311,7 +312,7 @@ public class GroupThread extends Thread
 								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
 								System.out.println("Group: " + groupName);
 
-								if (yourToken.verifySignature())
+								if (yourToken.verifySignature(my_gs.getPublicKey()))
 								{
 								  System.out.println("Token Verified");
 									List<String> memberList = listMembers(groupName, yourToken);
@@ -349,7 +350,7 @@ public class GroupThread extends Thread
 									System.out.println("Username: " + username);
 									System.out.println("Group Name: " + groupName);
 
-									if (yourToken.verifySignature())
+									if (yourToken.verifySignature(my_gs.getPublicKey()))
 									{
 									  System.out.println("Token Verified");
 										if(addUserToGroup(username, groupName, yourToken))
@@ -386,7 +387,7 @@ public class GroupThread extends Thread
 									System.out.println("Username: " + username);
 									System.out.println("Group Name: " + groupName);
 
-									if (yourToken.verifySignature())
+									if (yourToken.verifySignature(my_gs.getPublicKey()))
 									{
 									  System.out.println("Token Verified");
 										if(removeUserFromGroup(username, groupName, yourToken))
@@ -420,13 +421,13 @@ public class GroupThread extends Thread
 	}
 
 	//Method to create tokens
-	private UserToken createToken(String username)
+	private UserToken createToken(String username, String fServer)
 	{
 		//Check that user exists
 		if(my_gs.userList.checkUser(username))
 		{
 			//Issue a new token with server's name, user's name, and user's groups
-			UserToken yourToken = new Token(my_gs.name, username, my_gs.userList.getUserGroups(username), my_gs.getPrivateKey(), my_gs.getPublicKey());
+			UserToken yourToken = new Token(my_gs.name, username, my_gs.userList.getUserGroups(username), my_gs.getPrivateKey(), fServer);
 			return yourToken;
 		}
 		else
@@ -537,7 +538,7 @@ public class GroupThread extends Thread
 					for(int index = 0; index < deleteOwnedGroup.size(); index++)
 					{
 						//Use the delete group method. Token must be created for this action
-						deleteGroup(deleteOwnedGroup.get(index), new Token(my_gs.name, username, deleteOwnedGroup, my_gs.getPrivateKey(), my_gs.getPublicKey()));
+						deleteGroup(deleteOwnedGroup.get(index), new Token(my_gs.name, username, deleteOwnedGroup, my_gs.getPrivateKey(), "127.0.0.1"));
 					}
 
 					//Delete the user from the user list

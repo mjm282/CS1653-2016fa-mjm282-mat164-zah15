@@ -18,8 +18,9 @@ public class GroupClient extends Client implements GroupClientInterface
 	private Key sessionKey;
 	private IvParameterSpec IV = null;
 	private byte[] aesTok = null;
+	private PublicKey sPubKey = null;
 
-	 public UserToken getToken(String username, KeyPair userKey)
+	 public UserToken getToken(String username, KeyPair userKey, String fServer)
 	 {
 		// Set security provider
 		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
@@ -47,7 +48,7 @@ public class GroupClient extends Client implements GroupClientInterface
 
 			// Servers public key
       //gets the server's public key
-      PublicKey sPubKey = null;
+      //PublicKey sPubKey = null;
       try
       {
         ObjectInputStream keyStream;
@@ -75,6 +76,7 @@ public class GroupClient extends Client implements GroupClientInterface
 			//Tell the server to return a token.
 			message = new Envelope("GET");
 			message.addObject(username); //Add user name string
+			message.addObject(fServer); // Add File Server address string so it can be added to the token
 			output.writeObject(message);
 
 			//Get the response from the server
@@ -193,6 +195,10 @@ public class GroupClient extends Client implements GroupClientInterface
 				e.printStackTrace(System.err);
 				return false;
 			}
+	 }
+
+	 public PublicKey getGSkey() {
+		 return sPubKey;
 	 }
 
 	 public boolean createGroup(String groupname, UserToken token)

@@ -33,7 +33,7 @@ public class FileClient extends Client implements FileClientInterface {
 
 	private Serializer ser = new Serializer();
 
-	public boolean connect(final String server, final int port, UserToken token) {
+	public boolean connect(final String server, final int port, UserToken token, PublicKey groupPubKey) {
 		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
 		try{
 			sock = new Socket(server, port);
@@ -106,6 +106,7 @@ public class FileClient extends Client implements FileClientInterface {
 						message.addObject(rsaSessionKey);//0
 						message.addObject(aesTok);//1
 						message.addObject(ivBytes); //2
+						message.addObject(groupPubKey); //3, The public key to verifiy the token
 
 						output.writeObject(message);
 
