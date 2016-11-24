@@ -22,7 +22,11 @@ public interface UserToken extends java.io.Serializable
      * @return The issuer of this token
      *
      */
+
     public String getIssuer();
+
+    public String getIssuee();
+
     /**
      * This method should return a string indicating the name of the
      * subject of the token.  For instance, if "Alice" requests a
@@ -32,6 +36,7 @@ public interface UserToken extends java.io.Serializable
      * @return The subject of this token
      *
      */
+
     public String getSubject();
     /**
      * This method extracts the list of groups that the owner of this

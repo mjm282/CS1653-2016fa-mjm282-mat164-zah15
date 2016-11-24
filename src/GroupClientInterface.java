@@ -39,7 +39,7 @@ public interface GroupClientInterface
      *
      */
      // Added in KeyPair for public key auth
-    public UserToken getToken(final String username, final KeyPair userKey);
+    public UserToken getToken(final String username, final KeyPair userKey, final String fServer);
 
 
     /**
