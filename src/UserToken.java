@@ -1,4 +1,4 @@
-
+import java.security.PublicKey;
 import java.util.List;
 
 /**
@@ -45,7 +45,7 @@ public interface UserToken extends java.io.Serializable
     public List<String> getGroups();
 
     // Verify Signiture
-    public boolean verifySignature();
+    public boolean verifySignature(PublicKey sPubKey);
 
     public long getTimestamp();
 }   //-- end interface UserToken
