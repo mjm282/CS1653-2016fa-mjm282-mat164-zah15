@@ -179,7 +179,7 @@ public class FileThread extends Thread
 									}
 								}
 							}
-							if(workingToken.verifySignature(gsPubKey))
+							if(verifyToken(workingToken, gsPubKey))
 							{
 								System.out.println("Token Verified");
 								response = new Envelope("OK"); // Set the response to indicate success
@@ -223,7 +223,7 @@ public class FileThread extends Thread
 								response = new Envelope("FAIL-UNAUTHORIZED"); //Success
 							}
 							else  {
-								if (yourToken.verifySignature(gsPubKey))
+								if (verifyToken(yourToken, gsPubKey))
 								{
 									System.out.println("Token Verified");
 
@@ -288,7 +288,7 @@ public class FileThread extends Thread
 
 						}
 						else {
-							if(t.verifySignature(gsPubKey))
+							if(verifyToken(t, gsPubKey))
 							{
 								System.out.println("Token Verified");
 
@@ -376,7 +376,7 @@ public class FileThread extends Thread
 
 						try
 						{
-							if(t.verifySignature(gsPubKey))
+							if(verifyToken(t, gsPubKey))
 							{
 								System.out.println("Token Verified");
 								File f = new File("shared_files/"+"_"+remotePath.replace('/', '_'));
@@ -460,5 +460,45 @@ public class FileThread extends Thread
 		aesCipher.init(Cipher.ENCRYPT_MODE, AESkey, IV);
 		byte[] byteCipherText = aesCipher.doFinal(plainText);
 		return byteCipherText;
+	}
+
+	public boolean verifyToken(UserToken myToken, PublicKey GroupPubKey) {
+		// Verify that the signiture is valid and issued for this server
+		if (socket.getInetAddress().toString().equals("127.0.0.1") || socket.getInetAddress().toString().toLowerCase().equals("localhost") || socket.getInetAddress().toString().equals("/127.0.0.1"))
+		{
+			// Connected from local host, only verify token
+			if (myToken.verifySignature(GroupPubKey))
+			{
+				System.out.println("Token Verified Server Running on LocalHost");
+				return true;
+			}
+			else
+			{
+				System.out.println("Token FAILED Server Running on LocalHost");
+				return false;
+			}
+		} else {
+			if (myToken.verifySignature(GroupPubKey)) // The connection is not from local host, need to verify the issued to server
+			{ // Put in logic to verifiy this server is valid
+				try {
+					String IP = java.net.InetAddress.getLocalHost().getHostAddress();
+      		String localhostname = java.net.InetAddress.getLocalHost().getHostName();
+					if (myToken.getIssuee().equals(IP) || myToken.getIssuee().toLowerCase().equals(localhostname.toLowerCase())) {
+						System.out.println("Token Verified Server Running on: " + IP);
+						return true;
+					} else {
+						System.out.println("Token FAILED Server Running on: " + IP);
+						return false;
+					}
+
+				} catch (Exception e) {
+					System.out.println("Could Not Get Host Name");
+					return false; // Something went wrong, but I still need to compile
+				}
+
+			} else {
+				return false;
+			}
+		}
 	}
 }
