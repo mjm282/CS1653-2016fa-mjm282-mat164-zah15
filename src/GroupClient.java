@@ -1,5 +1,4 @@
 /* Implements the GroupClient Interface */
-
 import java.util.*;
 import java.io.*;
 import javax.crypto.KeyGenerator;
@@ -10,6 +9,7 @@ import org.bouncycastle.*;
 import java.security.*;
 import java.math.BigInteger;
 import org.bouncycastle.*;
+import java.nio.ByteBuffer; //serializer was throwing errors to I decided to try a ByteBuffer
 
 public class GroupClient extends Client implements GroupClientInterface
 {
@@ -352,6 +352,183 @@ public class GroupClient extends Client implements GroupClientInterface
 			}
 	 }
 
+	 
+	 //group key functions (mjm282)
+	 
+	 //needs to be able to get the group key from the server
+	 //sends the group name, the key number the file is encrypted with (from the beginning of the file), and the user's token
+	 public Key getGroupKey(String groupName, int keyNum, UserToken token)
+	 {
+		Serializer ser = new Serializer();
+		try
+		{
+			Envelope message = null, response = null;
+			 
+			message = new Envelope("GETK");
+			message.addObject(encryptAES(groupName.getBytes(), sessionKey, IV)); //Add user name string
+			message.addObject(encryptAES((byte[])ser.serialize(keyNum), sessionKey, IV)); //Add group name string
+			message.addObject(aesTok);
+			
+			output.writeObject(message);
+			
+			response = (Envelope) input.readObject();
+			
+			if(response.getMessage().equals("OK"))
+			{
+				Key retKey = new SecretKeySpec((byte[])ser.deserialize(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV)), "AES");
+				return retKey;
+			}
+			
+			return null;
+		}
+		catch(Exception e)
+		{
+			System.err.println("Error: " + e.getMessage());
+			e.printStackTrace(System.err);
+			return null;
+		}
+	 }
+	 
+	 //if the client is uploading it will use the most recent key, so no keyNum will be passed in
+	 public ArrayList<Object> getGroupKey(String groupName, UserToken token)
+	 {
+		 Serializer ser = new Serializer();
+		try
+		{
+			Envelope message = null, response = null;
+			 
+			message = new Envelope("GETK");
+			message.addObject(encryptAES(groupName.getBytes(), sessionKey, IV)); //Add user name string
+			message.addObject(aesTok);
+			
+			output.writeObject(message);
+			
+			response = (Envelope) input.readObject();
+			
+			if(response.getMessage().equals("OK"))
+			{
+				ArrayList<Object> ret = new ArrayList<Object>();
+				Key gKey = new SecretKeySpec(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV), "AES");
+				System.out.println("group key = " + gKey.toString());
+				ret.add(gKey);
+				ret.add(response.getObjContents().get(1));
+				System.out.println(ret);
+				return ret;
+//				Key retKey = new SecretKeySpec((byte[])ser.deserialize(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV)), "AES");
+//				return retKey;
+			}
+			
+			return null;
+		}
+		catch(Exception e)
+		{
+			System.err.println("Error: " + e.getMessage());
+			e.printStackTrace(System.err);
+			return null;
+		}
+	 }
+	 
+	 //does everything needed to get a group key, parse out key number and IV, and decrypt a file
+	 //doing this in GroupClient because it's slightly more convenient
+	 public boolean downloadDec(String dFile, UserToken token)
+	 {
+		IvParameterSpec fileIV = null;
+		Key groupKey = null;
+		Integer keyNum;
+		String group = null;
+		byte[] startBytes = new byte[120];
+		byte[] ivBytes = new byte[16];
+		byte[] numBytes = new byte[4];
+		byte[] groupBytes = new byte[100];
+		
+		Serializer ser = new Serializer();
+		
+		try
+		{
+		
+		String encFile = dFile + ".enc";
+		File inFile = new File(encFile);
+		File outFile = new File(dFile);
+		outFile.createNewFile();
+		
+		//creates a file input stream and reads the first chunk from the file
+		//also creates a file output stream to save the decrypted file contents
+		FileInputStream fis = new FileInputStream(inFile);
+		FileOutputStream fos = new FileOutputStream(outFile);
+		
+		boolean firstChunk = true;
+		
+		do{
+			//reads a full chunk into memory
+			byte[] buf = new byte[4096];
+			int in = fis.read(buf);
+		
+			//if this is the first chunk we need to get the key number, group, and IV out of the file
+			if(firstChunk)
+			{
+				firstChunk = false;
+				for(int i = 0; i < 120; i++)
+				{
+					if(i < 4)
+					{
+						numBytes[i] = buf[i];
+						//System.out.println(numBytes[i]);
+					}
+					else if(i < 20)
+					{
+						ivBytes[i-4] = buf[i];
+						//System.out.println(ivBytes[i-4]);
+					}
+					else
+					{
+						groupBytes[i-20] = buf[i];
+						//System.out.println(groupBytes[i-20]);
+					}
+				}
+				
+				for(int i = 0; i < 4; i++)
+				{
+					System.out.print(numBytes[i]);
+				}
+				System.out.println();
+				
+				
+				keyNum = ByteBuffer.wrap(numBytes).getInt();
+				
+				System.out.println(keyNum);
+				
+				for(int i = 0; i < 16; i++)
+				{
+					
+				}
+			
+				
+				
+				fileIV = new IvParameterSpec(ivBytes);
+				groupKey = getGroupKey("ADMIN", 0, token);
+				fos.write((byte[]) decryptAES(buf, groupKey, fileIV), 120, in - 120);
+			
+			}
+			else
+			{
+				fos.write((byte[]) decryptAES(buf, groupKey, fileIV), 0, in);
+			}
+		}while(fis.available() > 0);
+		
+		inFile.delete();
+		
+		fos.close();
+		fis.close();
+		
+		}catch(Exception e){
+			e.printStackTrace();
+			return false;
+		}
+		
+		return true;
+	 }
+	 
+	 
 	 // RSA Functions (Turley)
 	 public byte[] encryptChalRSA(BigInteger challenge, Key pubRSAkey) throws Exception
 	{
@@ -396,7 +573,8 @@ public class GroupClient extends Client implements GroupClientInterface
 		return byteCipherText;
 	}
 
-
+	
+	
 	 //TODO implement encryption and decryption for message passing
 	 //Would be possibly easier to make 4 methods, two for enc/dec in AES and two for enc/dec in RSA
 
