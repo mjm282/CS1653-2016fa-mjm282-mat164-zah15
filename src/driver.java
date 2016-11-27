@@ -220,7 +220,21 @@ public class driver
 				dFile = scan.next();
 				System.out.println("Please Choose a Group to Share With");
 				groupName = scan.next();
-				if (!fClient.upload(sFile, dFile, groupName, yourToken))
+				
+				//gets a different return value if it's uploading or downloading
+				//if uploading it gets both the Key and the latest key number
+				System.out.println("before group key");
+				ArrayList<Object> uploadGK = gClient.getGroupKey(groupName, yourToken);
+				System.out.println("after group key");
+				Key groupKey = (Key)uploadGK.get(0);
+				int keyNum = (int) uploadGK.get(1);
+				
+				if(groupKey == null)
+				{
+					System.out.println("Unable to retrieve group key for encryption, make sure you are a member of: " + groupName);
+				}
+				System.out.println("got group key, preparing to upload");
+				if (!fClient.upload(sFile, dFile, groupName, yourToken, groupKey, keyNum))
 				{
 					System.out.println("Permission Denied");
 				}
@@ -236,6 +250,10 @@ public class driver
 				{
 					System.out.println("Permission Denied");
 				}
+				if (!gClient.downloadDec(dFile, yourToken))
+				{
+					System.out.println("Error decrypting downloaded file");
+				}				
 			}
 
 			else if (groupCommand.equals("deletef"))

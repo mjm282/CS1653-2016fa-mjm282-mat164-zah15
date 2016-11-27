@@ -1,5 +1,4 @@
 /* Implements the GroupClient Interface */
-
 import java.util.*;
 import java.io.*;
 import javax.crypto.KeyGenerator;
@@ -10,6 +9,7 @@ import org.bouncycastle.*;
 import java.security.*;
 import java.math.BigInteger;
 import org.bouncycastle.*;
+import javax.crypto.CipherOutputStream;
 
 public class GroupClient extends Client implements GroupClientInterface
 {
@@ -352,6 +352,178 @@ public class GroupClient extends Client implements GroupClientInterface
 			}
 	 }
 
+	 
+	 //group key functions (mjm282)
+	 
+	 //needs to be able to get the group key from the server
+	 //sends the group name, the key number the file is encrypted with (from the beginning of the file), and the user's token
+	 public Key getGroupKey(String groupName, int keyNum, UserToken token)
+	 {
+		Serializer ser = new Serializer();
+		try
+		{
+			Envelope message = null, response = null;
+			 
+			//convert keyNum to bytes
+			byte[] intBytes = new byte[4];
+			intBytes[0] = (byte) (keyNum >> 24);
+			intBytes[1] = (byte) (keyNum >> 16);
+			intBytes[2] = (byte) (keyNum >> 8);
+			intBytes[3] = (byte) (keyNum);
+			 
+			message = new Envelope("GETK");
+			message.addObject(encryptAES(groupName.getBytes(), sessionKey, IV)); //Add group name
+			message.addObject(encryptAES(intBytes, sessionKey, IV)); //Add keyNum
+			message.addObject(aesTok);
+			
+			output.writeObject(message);
+			
+			response = (Envelope) input.readObject();
+			
+			if(response.getMessage().equals("OK"))
+			{
+				Key retKey = new SecretKeySpec(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV), "AES");
+				//Key retKey = new SecretKeySpec((byte[])ser.deserialize(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV)), "AES");
+				return retKey;
+			}
+			
+			return null;
+		}
+		catch(Exception e)
+		{
+			System.err.println("Error: " + e.getMessage());
+			e.printStackTrace(System.err);
+			return null;
+		}
+	 }
+	 
+	 //if the client is uploading it will use the most recent key, so no keyNum will be passed in
+	 public ArrayList<Object> getGroupKey(String groupName, UserToken token)
+	 {
+		 Serializer ser = new Serializer();
+		try
+		{
+			Envelope message = null, response = null;
+			 
+			message = new Envelope("GETK");
+			message.addObject(encryptAES(groupName.getBytes(), sessionKey, IV)); //Add user name string
+			message.addObject(aesTok);
+			
+			output.writeObject(message);
+			
+			response = (Envelope) input.readObject();
+			
+			if(response.getMessage().equals("OK"))
+			{
+				ArrayList<Object> ret = new ArrayList<Object>();
+				Key gKey = new SecretKeySpec(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV), "AES");
+				ret.add(gKey);
+				ret.add(response.getObjContents().get(1));
+				return ret;
+//				Key retKey = new SecretKeySpec((byte[])ser.deserialize(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV)), "AES");
+//				return retKey;
+			}
+			
+			return null;
+		}
+		catch(Exception e)
+		{
+			System.err.println("Error: " + e.getMessage());
+			e.printStackTrace(System.err);
+			return null;
+		}
+	 }
+	 
+	 //does everything needed to get a group key, parse out key number and IV, and decrypt a file
+	 //doing this in GroupClient because it's slightly more convenient
+	 public boolean downloadDec(String dFile, UserToken token)
+	 {
+		IvParameterSpec fileIV = null;
+		Key groupKey = null;
+		Integer keyNum;
+		String group = null;
+		byte[] startBytes = new byte[120];
+		byte[] ivBytes = new byte[16];
+		byte[] numBytes = new byte[4];
+		byte[] groupBytes = new byte[100];
+		
+		Serializer ser = new Serializer();
+		
+		try
+		{
+		
+		String encFile = dFile + ".enc";
+		File inFile = new File(encFile);
+		File outFile = new File(dFile);
+		outFile.createNewFile();
+		
+		
+		
+		//gets metadata from.meta file and parses it out into all of the needed keys/IV/etc.
+		File tfile = new File(dFile + ".meta");
+		FileInputStream tfis = new FileInputStream(tfile);
+		tfis.read(startBytes);
+		tfis.close();
+		tfile.delete();
+		for(int i = 0; i < 120; i++)
+		{
+			if(i < 4)
+			{
+				numBytes[i] = startBytes[i];
+				//System.out.println(numBytes[i]);
+			}
+			else if(i < 20)
+			{
+				ivBytes[i-4] = startBytes[i];
+				//System.out.println(ivBytes[i-4]);
+			}
+			else
+			{
+				groupBytes[i-20] = startBytes[i];
+				//System.out.println(groupBytes[i-20]);
+			}
+		}
+		
+		
+		keyNum = ((numBytes[0] & 0xFF) << 24) | ((numBytes[1] & 0xFF) << 16) | ((numBytes[2] & 0xFF) << 8) | (numBytes[3] & 0xFF);
+		
+		group = new String(groupBytes).trim();
+		
+		//create IV from input and get group AES key
+		fileIV = new IvParameterSpec(ivBytes);	
+		groupKey = getGroupKey(group, keyNum, token);
+		
+		//creates a file input stream and reads the first chunk from the file
+		//also creates a CipherOutputStream to decrypt and store the downloaded file
+		Cipher decCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		decCipher.init(Cipher.DECRYPT_MODE, groupKey, fileIV);
+		FileInputStream fis = new FileInputStream(inFile);
+		FileOutputStream fos = new FileOutputStream(outFile);
+		CipherOutputStream cos = new CipherOutputStream(fos, decCipher);
+
+		do{
+			//reads a full chunk into memory
+			byte[] buf = new byte[4096];
+			int in = fis.read(buf);
+			cos.write(buf, 0, in);
+			//fos.write((byte[]) decryptAES(buf, groupKey, fileIV), 0, in);
+				
+		}while(fis.available() > 0);
+		
+		
+		fos.close();
+		fis.close();
+		inFile.delete();
+		
+		}catch(Exception e){
+			e.printStackTrace();
+			return false;
+		}
+		
+		return true;
+	 }
+	 
+	 
 	 // RSA Functions (Turley)
 	 public byte[] encryptChalRSA(BigInteger challenge, Key pubRSAkey) throws Exception
 	{
@@ -396,7 +568,13 @@ public class GroupClient extends Client implements GroupClientInterface
 		return byteCipherText;
 	}
 
-
+	// public static byte[] encryptECB(byte[] plainText, Key AESkey) throws Exception
+	// {
+		// Cipher aesCipher = Cipher.getInstance("AES", "BC");
+		
+	// }
+	
+	
 	 //TODO implement encryption and decryption for message passing
 	 //Would be possibly easier to make 4 methods, two for enc/dec in AES and two for enc/dec in RSA
 

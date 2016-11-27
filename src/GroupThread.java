@@ -126,6 +126,7 @@ public class GroupThread extends Thread
 								byte[] ivBytes = new byte[16];
 								ivRand.nextBytes(ivBytes);
 								IV = new IvParameterSpec(ivBytes);
+								System.out.println(IV);
 								System.out.println("Created IV");
 								// And encrypt the Token!
 								byte[] aesTok = encryptAES(serTok, sessionKey, IV);
@@ -405,6 +406,72 @@ public class GroupThread extends Thread
 				{
 					socket.close(); //Close the socket
 					proceed = false; //End this communication loop
+				}
+				else if(message.getMessage().equals("GETK"))
+				{
+					if(message.getObjContents().size() < 2)
+					{
+						response = new Envelope("FAIL");
+					}
+					else if(message.getObjContents().size() == 3)
+					{
+						response = new Envelope("FAIL");
+						if(message.getObjContents().get(0) != null)
+						{
+							if(message.getObjContents().get(1) != null)
+							{
+								if(message.getObjContents().get(2) != null)
+								{
+									String groupName = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));
+									//int keyNum = (Integer)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
+									byte[] numBytes = decryptAES((byte[]) message.getObjContents().get(1), sessionKey, IV);
+									int keyNum = ((numBytes[0] & 0xFF) << 24) | ((numBytes[1] & 0xFF) << 16) | ((numBytes[2] & 0xFF) << 8) | (numBytes[3] & 0xFF);
+									UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(2), sessionKey, IV));
+									
+									if(yourToken.verifySignature(my_gs.getPublicKey()))
+									{
+										System.out.println("Token Verified");
+										Key groupKey = getGroupKey(groupName, keyNum, yourToken);
+										if(groupKey != null)
+										{
+											response = new Envelope("OK");
+											response.addObject(encryptGroupKey(groupKey, sessionKey, IV));
+										}
+									}
+								}
+							}
+						}
+					}
+					else if(message.getObjContents().size() == 2)
+					{
+						response = new Envelope("FAIL");
+						
+						if(message.getObjContents().get(0) != null)
+						{
+							if(message.getObjContents().get(1) != null)
+							{
+								String groupName = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));	
+								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));	
+								
+								if(yourToken.verifySignature(my_gs.getPublicKey()))
+								{
+									System.out.println("Token Verified");
+									Key groupKey = getGroupKey(groupName, yourToken);
+									if(groupKey != null)
+									{
+										response = new Envelope("OK");
+										response.addObject(encryptGroupKey(groupKey, sessionKey, IV));
+										response.addObject(my_gs.groupList.getNum(groupName));
+									}
+								}
+							}
+						}
+					}
+					else
+					{
+						response = new Envelope("FAIL");
+					}
+					output.writeObject(response);
 				}
 				else
 				{
@@ -795,6 +862,68 @@ public class GroupThread extends Thread
 		}
 	}
 
+	private Key getGroupKey (String groupName, int keyNum, UserToken yourToken)
+	{
+		String requester = yourToken.getSubject();
+		//does the user exist
+		if(my_gs.userList.checkUser(requester))
+		{
+			//does the group exist
+			if(my_gs.groupList.checkGroup(groupName))
+			{
+				//is the user in the group
+				if(my_gs.groupList.checkMember(groupName, requester))
+				{
+					return  my_gs.groupList.getKey(groupName, keyNum);
+				}
+				else
+				{
+					return null; //user not in group
+				}
+			}
+			else
+			{
+				return null; //group doesn't exist
+			}
+		}
+		else
+		{
+			return null; //user doesn't exist
+		}
+	}
+	
+	private Key getGroupKey (String groupName, UserToken yourToken)
+	{
+		String requester = yourToken.getSubject();
+		//does the user exist
+		if(my_gs.userList.checkUser(requester))
+		{
+			//does the group exist
+			//if(my_gs.groupList.checkGroup(groupName))
+			//{
+				//is the user in the group
+				if(my_gs.groupList.checkMember(groupName, requester))
+				{
+					return  my_gs.groupList.getKey(groupName);
+				}
+				else
+				{
+					//System.out.println("not in group");
+					return null; //user not in group
+				}
+			//}
+			//else
+			//{
+			//	return null; //group doesn't exist
+			//}
+		}
+		else
+		{
+			//System.out.println("user DNE");
+			return null; //user doesn't exist
+		}
+	}
+	
 	// RSA Functions (Turley)
 	public byte[] encryptChalRSA(BigInteger challenge, Key pubRSAkey) throws Exception
   {
@@ -802,6 +931,14 @@ public class GroupThread extends Thread
   	rsaCipher.init(Cipher.ENCRYPT_MODE, pubRSAkey);
   	byte[] byteCipherText = rsaCipher.doFinal(challenge.toByteArray());
   	return byteCipherText;
+  }
+  
+  public static byte[] encryptGroupKey(Key gKey, Key sKey, IvParameterSpec IV) throws Exception
+  {
+	  Cipher sCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+	  sCipher.init(Cipher.ENCRYPT_MODE, sKey, IV);
+	  byte[] byteKey = sCipher.doFinal(gKey.getEncoded());
+	  return byteKey;
   }
 
 	public byte[] encryptAESKeyRSA(Key aesKey, Key pubRSAkey) throws Exception
