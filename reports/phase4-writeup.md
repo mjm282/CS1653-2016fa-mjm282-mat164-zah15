@@ -1,6 +1,6 @@
-##Mechanism Description
+#Mechanism Description
 
-#Description of Threats:
+##Description of Threats:
 
 T5 - Message Reorder, Replay, or Modification:
 
@@ -16,7 +16,7 @@ T7 - Token Theft:
 
 - In addition to leaking files, a malicious file server could also impersonate an active user by taking their token.
 
-Solution:
+##Solution:
 
 T5: Message Reorder, Replay, or Modification
 
@@ -33,8 +33,8 @@ T5: Message Reorder, Replay, or Modification
 - Verification of the file server will go as follows:
   - The client opens a socket connection with the file server
   - File Server -&gt; Client: kf
-    - ■■The client computes the hash of the server&#39;s public key and verifies it against a known hash securely given to the user by the file server&#39;s administrator
-    - ■■The client will save the public key hash and alerts the user if the server&#39;s key being sent changes
+    - The client computes the hash of the server&#39;s public key and verifies it against a known hash securely given to the user by the file server&#39;s administrator
+    - The client will save the public key hash and alerts the user if the server&#39;s key being sent changes
   - Client -&gt; File Server: {C}kf, {Counter1}ks
   - File Server -&gt; Client: C, {Counte2}kc
   - Client -&gt; File Server: {{Token}kg-1 , Counter
