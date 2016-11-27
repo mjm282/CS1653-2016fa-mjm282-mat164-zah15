@@ -1,4 +1,8 @@
 import java.util.*;
+import org.bouncycastle.*;
+import java.security.*;
+import javax.crypto.KeyGenerator;
+
 
 public class GroupList implements java.io.Serializable
 {
@@ -27,6 +31,8 @@ public class GroupList implements java.io.Serializable
 	//if it already exists, returns true, if not false
 	public synchronized boolean checkGroup(String groupName)
 	{
+		System.out.println("groupList " + groupName);
+		System.out.println(gList);
 		if(gList.containsKey(groupName)) 
 		{
 			return true;
@@ -110,6 +116,20 @@ public class GroupList implements java.io.Serializable
 		gList.get(groupName).removeOwner(username);
 	}
 	
+	public synchronized Key getKey(String groupName, int keyNum)
+	{
+		return gList.get(groupName).getKey(keyNum);
+	}
+	
+	public synchronized Key getKey(String groupName)
+	{
+		return gList.get(groupName).getKey();
+	}
+	
+	public synchronized int getNum(String groupName)
+	{
+		return gList.get(groupName).getNum();
+	}
 	
 	/* group datatype
 	 * contains the list of users that are in a specific group
@@ -120,11 +140,13 @@ public class GroupList implements java.io.Serializable
 	{
 		private ArrayList<String> users; //the list of users that are in the group
 		private ArrayList<String> owners; //the owners of the group
+		private ArrayList<Key> groupKeys; //the list of group AES keys
 		
 		public Group()
 		{
 			users = new ArrayList<String>();
 			owners = new ArrayList<String>();
+			groupKeys = new ArrayList<Key>();
 		}
 		
 		public ArrayList<String> getUsers()
@@ -166,6 +188,58 @@ public class GroupList implements java.io.Serializable
 				{
 					owners.remove(owners.indexOf(owner));
 				}
+			}
+		}
+		
+		
+		//CRYPTO METHODS
+		//MJM282
+		
+		//getters for AES keys:
+		//no arg = most recent key
+		//int arg = past key
+		public Key getKey()
+		{
+			if(groupKeys.size() == 0) updateKey();
+			return groupKeys.get(groupKeys.size() -1);
+		}
+		
+		public Key getKey(int keyNum)
+		{
+			return groupKeys.get(keyNum);
+		}
+		
+		//gets the key number
+		//no arg = most recent key
+		public int getNum()
+		{
+			if(groupKeys.size() == 0) updateKey();
+			return groupKeys.size() -1;
+		}
+		
+		//generates a new key and adds it to the end of list
+		public void updateKey()
+		{
+			Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+			try
+			{
+				KeyGenerator generator = KeyGenerator.getInstance("AES", "BC");
+				generator.init(128);
+				Key latestKey = generator.generateKey();
+				
+				groupKeys.add(latestKey);
+			}
+			catch(NoSuchAlgorithmException e)
+			{
+				System.err.println("Error: " + e.getMessage());
+				e.printStackTrace(System.err);
+				System.exit(-1);
+			}
+			catch(NoSuchProviderException e)
+			{
+				System.err.println("Error: " + e.getMessage());
+				e.printStackTrace(System.err);
+				System.exit(-1);
 			}
 		}
 	}

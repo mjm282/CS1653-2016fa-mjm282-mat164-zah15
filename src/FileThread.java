@@ -234,10 +234,20 @@ public class FileThread extends Thread
 
 									response = new Envelope("READY"); //Success
 									output.writeObject(response);
-
+									
 									e = (Envelope)input.readObject();
 									while (e.getMessage().compareTo("CHUNK")==0) {
-										fos.write((byte[])decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV), 0, (Integer)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV)));
+										//server will no longer be decrypting the file as everything will be stored encrypted with group keys
+										//fos.write((byte[])decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV), 0, (Integer)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV)));
+										if(e.getObjContents().size() == 1)
+										{
+											fos.write((byte[]) e.getObjContents().get(0), 0, 120);
+										}
+										else
+										{
+											fos.write((byte[])e.getObjContents().get(0), 0, (Integer)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV)));					
+										}
+										
 										response = new Envelope("READY"); //Success
 										output.writeObject(response);
 										e = (Envelope)input.readObject();

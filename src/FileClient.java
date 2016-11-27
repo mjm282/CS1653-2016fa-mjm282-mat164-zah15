@@ -168,7 +168,7 @@ public class FileClient extends Client implements FileClientInterface {
 				if (sourceFile.charAt(0)=='/') {
 					sourceFile = sourceFile.substring(1);
 				}
-				File file = new File(destFile);
+				File file = new File(destFile + ".enc");
 			    try {
 
 
@@ -186,7 +186,6 @@ public class FileClient extends Client implements FileClientInterface {
 					    output.writeObject(env);
 
 					    env = (Envelope)input.readObject();
-
 						while (env.getMessage().compareTo("CHUNK")==0) {
 								try
 								{
@@ -267,7 +266,7 @@ public class FileClient extends Client implements FileClientInterface {
 	}
 
 	public boolean upload(String sourceFile, String destFile, String group,
-			UserToken token) {
+			UserToken token, Key groupKey, int keyNum) {
 
 		if (destFile.charAt(0)!='/') {
 			 destFile = "/" + destFile;
@@ -275,7 +274,7 @@ public class FileClient extends Client implements FileClientInterface {
 
 		try
 		 {
-
+		 
 			 Envelope message = null, env = null;
 			 //Tell the server to return the member list
 			 message = new Envelope("UPLOADF");
@@ -303,8 +302,49 @@ public class FileClient extends Client implements FileClientInterface {
 				 System.out.printf("Upload failed: %s\n", env.getMessage());
 				 return false;
 			 }
-
-
+			 
+			 //sends the key number and IV first before transmitting any file contents
+			 
+			 //generate an IV for upload, each file has it's own IV that will be attatched to the file
+			SecureRandom ivRand = new SecureRandom();
+            byte[] ivBytes = new byte[16];
+            ivRand.nextBytes(ivBytes);
+            IvParameterSpec fileIV = new IvParameterSpec(ivBytes);
+			
+			Serializer ser = new Serializer();
+			
+			byte[] startBytes = new byte [120];
+			byte[] intBytes = new byte[4];
+			byte[] groupBytes = new byte[100]; //imposes a 50 character limit on group names, which I feel is PLENTY
+			
+			//intBytes = (byte[]) ser.serialize(keyNum);
+			intBytes[0] = (byte) (keyNum >> 24);
+			intBytes[1] = (byte) (keyNum >> 16);
+			intBytes[2] = (byte) (keyNum >> 8);
+			intBytes[3] = (byte) (keyNum);
+			groupBytes = group.getBytes();
+			
+			for(int i = 0; i < 20; i++)
+			{
+				if(i < 4)
+				{
+					startBytes[i] = intBytes[i];
+					// System.out.println(startBytes[i]);
+				}
+				else if (i < 20)
+				{
+					startBytes[i] = ivBytes[i-4];
+					// System.out.println(startBytes[i]);
+				}
+			}
+			
+			for(int i = 0; i < groupBytes.length; i++)
+			{
+				startBytes[i+20] = groupBytes[i];
+			}
+			
+			boolean firstChunk = true;
+			
 			 do {
 				 byte[] buf = new byte[4096];
 				 	if (env.getMessage().compareTo("READY")!=0) {
@@ -312,21 +352,63 @@ public class FileClient extends Client implements FileClientInterface {
 				 		return false;
 				 	}
 				 	message = new Envelope("CHUNK");
-					int n = fis.read(buf); //can throw an IOException
+					int n;
+					if(firstChunk)
+					{
+						for(int i = 0; i < 120; i++)
+						{
+							buf[i] = startBytes[i];
+						}
+						
+						n = 120;
+						//firstChunk = false;
+						
+						//byte[] tempBuf = new byte[3976]
+						//n = fis.read(tempBuf);
+						
+						//for(int i = 0; i < tempBuf.length; i++)
+						//{
+						//	buf[i+120] = 
+						//}
+						
+						// byte[] tmpBuf = new byte[3960];
+						// n = fis.read(tmpBuf);
+						// tmpBuf = encryptAES(tmpBuf, groupKey, fileIV);
+						// for(int i = 0; i < tmpBuf.length; i++)
+						// {
+							// buf[i+120] = tmpBuf[i];
+						// }
+						
+						// for(int i = 0; i < buf.length; i++)
+						// {
+							// System.out.print(buf[i]);
+						// }
+					}
+					else
+					{
+						n = fis.read(buf); //can throw an IOException
+					}
 					if (n > 0) {
 						System.out.printf(".");
 					} else if (n < 0) {
 						System.out.println("Read error");
 						return false;
 					}
-
-					message.addObject(encryptAES(buf, sessionKey, IV));
-					Integer nSend = new Integer(n);
-					Serializer nByte = new Serializer();
-					byte[] nSer = nByte.serialize(nSend);
-					byte[] nAES = encryptAES(nSer, sessionKey, IV);
-					message.addObject(nAES);
-
+					if(firstChunk)
+					{
+						firstChunk = false;
+						message.addObject(startBytes);
+					}	
+					else 
+					{
+						message.addObject(encryptAES(buf, groupKey, fileIV));
+						Integer nSend = new Integer(n);
+						Serializer nByte = new Serializer();
+						byte[] nSer = nByte.serialize(nSend);
+						byte[] nAES = encryptAES(nSer, sessionKey, IV);
+						message.addObject(nAES);
+					}
+					
 					output.writeObject(message);
 
 
