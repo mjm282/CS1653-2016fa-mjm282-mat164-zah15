@@ -316,26 +316,31 @@ public class FileClient extends Client implements FileClientInterface {
 			byte[] startBytes = new byte [120];
 			byte[] intBytes = new byte[4];
 			byte[] groupBytes = new byte[100]; //imposes a 50 character limit on group names, which I feel is PLENTY
-			intBytes = (byte[]) ser.serialize(keyNum);
-			int test = (Integer) ser.deserialize(intBytes);
-			groupBytes = (byte[]) ser.serialize(group);
+			
+			//intBytes = (byte[]) ser.serialize(keyNum);
+			intBytes[0] = (byte) (keyNum >> 24);
+			intBytes[1] = (byte) (keyNum >> 16);
+			intBytes[2] = (byte) (keyNum >> 8);
+			intBytes[3] = (byte) (keyNum);
+			groupBytes = group.getBytes();
 			
 			for(int i = 0; i < 20; i++)
 			{
 				if(i < 4)
 				{
 					startBytes[i] = intBytes[i];
-					//System.out.println(startBytes[i]);
+					// System.out.println(startBytes[i]);
 				}
 				else if (i < 20)
 				{
 					startBytes[i] = ivBytes[i-4];
-					//System.out.println(startBytes[i]);
+					// System.out.println(startBytes[i]);
 				}
-				else
-				{
-					startBytes[i] = groupBytes[i-20];
-				}
+			}
+			
+			for(int i = 0; i < groupBytes.length; i++)
+			{
+				startBytes[i+20] = groupBytes[i];
 			}
 			
 			boolean firstChunk = true;
@@ -354,9 +359,30 @@ public class FileClient extends Client implements FileClientInterface {
 						{
 							buf[i] = startBytes[i];
 						}
-						firstChunk = false;
 						
-						n = fis.read(buf, 120, 3976);
+						n = 120;
+						//firstChunk = false;
+						
+						//byte[] tempBuf = new byte[3976]
+						//n = fis.read(tempBuf);
+						
+						//for(int i = 0; i < tempBuf.length; i++)
+						//{
+						//	buf[i+120] = 
+						//}
+						
+						// byte[] tmpBuf = new byte[3960];
+						// n = fis.read(tmpBuf);
+						// tmpBuf = encryptAES(tmpBuf, groupKey, fileIV);
+						// for(int i = 0; i < tmpBuf.length; i++)
+						// {
+							// buf[i+120] = tmpBuf[i];
+						// }
+						
+						// for(int i = 0; i < buf.length; i++)
+						// {
+							// System.out.print(buf[i]);
+						// }
 					}
 					else
 					{
@@ -368,14 +394,21 @@ public class FileClient extends Client implements FileClientInterface {
 						System.out.println("Read error");
 						return false;
 					}
-
-					message.addObject(encryptAES(buf, groupKey, fileIV));
-					Integer nSend = new Integer(n);
-					Serializer nByte = new Serializer();
-					byte[] nSer = nByte.serialize(nSend);
-					byte[] nAES = encryptAES(nSer, sessionKey, IV);
-					message.addObject(nAES);
-
+					if(firstChunk)
+					{
+						firstChunk = false;
+						message.addObject(startBytes);
+					}	
+					else 
+					{
+						message.addObject(encryptAES(buf, groupKey, fileIV));
+						Integer nSend = new Integer(n);
+						Serializer nByte = new Serializer();
+						byte[] nSer = nByte.serialize(nSend);
+						byte[] nAES = encryptAES(nSer, sessionKey, IV);
+						message.addObject(nAES);
+					}
+					
 					output.writeObject(message);
 
 

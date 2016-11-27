@@ -364,9 +364,16 @@ public class GroupClient extends Client implements GroupClientInterface
 		{
 			Envelope message = null, response = null;
 			 
+			//convert keyNum to bytes
+			byte[] intBytes = new byte[4];
+			intBytes[0] = (byte) (keyNum >> 24);
+			intBytes[1] = (byte) (keyNum >> 16);
+			intBytes[2] = (byte) (keyNum >> 8);
+			intBytes[3] = (byte) (keyNum);
+			 
 			message = new Envelope("GETK");
-			message.addObject(encryptAES(groupName.getBytes(), sessionKey, IV)); //Add user name string
-			message.addObject(encryptAES((byte[])ser.serialize(keyNum), sessionKey, IV)); //Add group name string
+			message.addObject(encryptAES(groupName.getBytes(), sessionKey, IV)); //Add group name
+			message.addObject(encryptAES(intBytes, sessionKey, IV)); //Add keyNum
 			message.addObject(aesTok);
 			
 			output.writeObject(message);
@@ -375,7 +382,8 @@ public class GroupClient extends Client implements GroupClientInterface
 			
 			if(response.getMessage().equals("OK"))
 			{
-				Key retKey = new SecretKeySpec((byte[])ser.deserialize(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV)), "AES");
+				Key retKey = new SecretKeySpec(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV), "AES");
+				//Key retKey = new SecretKeySpec((byte[])ser.deserialize(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV)), "AES");
 				return retKey;
 			}
 			
@@ -461,56 +469,59 @@ public class GroupClient extends Client implements GroupClientInterface
 		do{
 			//reads a full chunk into memory
 			byte[] buf = new byte[4096];
-			int in = fis.read(buf);
-		
+			int in;// = fis.read(buf);
+
 			//if this is the first chunk we need to get the key number, group, and IV out of the file
 			if(firstChunk)
 			{
 				firstChunk = false;
+				
+				fis.read(startBytes);
+				
 				for(int i = 0; i < 120; i++)
 				{
 					if(i < 4)
 					{
-						numBytes[i] = buf[i];
+						numBytes[i] = startBytes[i];
 						//System.out.println(numBytes[i]);
 					}
 					else if(i < 20)
 					{
-						ivBytes[i-4] = buf[i];
+						ivBytes[i-4] = startBytes[i];
 						//System.out.println(ivBytes[i-4]);
 					}
 					else
 					{
-						groupBytes[i-20] = buf[i];
+						groupBytes[i-20] = startBytes[i];
 						//System.out.println(groupBytes[i-20]);
 					}
 				}
+
+				keyNum = ((numBytes[0] & 0xFF) << 24) | ((numBytes[1] & 0xFF) << 16) | ((numBytes[2] & 0xFF) << 8) | (numBytes[3] & 0xFF);
 				
-				for(int i = 0; i < 4; i++)
-				{
-					System.out.print(numBytes[i]);
-				}
-				System.out.println();
-				
-				
-				keyNum = ByteBuffer.wrap(numBytes).getInt();
-				
-				System.out.println(keyNum);
-				
-				for(int i = 0; i < 16; i++)
-				{
-					
-				}
-			
-				
+				group = new String(groupBytes).trim();
+				System.out.println(group.length());
 				
 				fileIV = new IvParameterSpec(ivBytes);
-				groupKey = getGroupKey("ADMIN", 0, token);
-				fos.write((byte[]) decryptAES(buf, groupKey, fileIV), 120, in - 120);
+				groupKey = getGroupKey(group, keyNum, token);
+				
+				System.out.println("groupKey =  " + groupKey);
+				
+				System.out.println(keyNum);
+				System.out.println(fileIV);
+				System.out.println(group);
+				
+				//byte[] tmpBuf = new byte[3960];
+				//in = fis.read(tmpBuf);
+				
+				//fos.write((byte[]) decryptAES(tmpBuf, groupKey, fileIV));
+				
+				//fos.write((byte[]) decryptAES(buf, groupKey, fileIV));
 			
 			}
 			else
 			{
+				in = fis.read(buf);
 				fos.write((byte[]) decryptAES(buf, groupKey, fileIV), 0, in);
 			}
 		}while(fis.available() > 0);

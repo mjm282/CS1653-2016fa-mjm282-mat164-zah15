@@ -415,15 +415,17 @@ public class GroupThread extends Thread
 					else if(message.getObjContents().size() == 3)
 					{
 						response = new Envelope("FAIL");
-
 						if(message.getObjContents().get(0) != null)
 						{
 							if(message.getObjContents().get(1) != null)
 							{
 								if(message.getObjContents().get(2) != null)
 								{
+									System.out.println("###########################################");
 									String groupName = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));
-									int keyNum = (Integer)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
+									//int keyNum = (Integer)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
+									byte[] numBytes = decryptAES((byte[]) message.getObjContents().get(1), sessionKey, IV);
+									int keyNum = ((numBytes[0] & 0xFF) << 24) | ((numBytes[1] & 0xFF) << 16) | ((numBytes[2] & 0xFF) << 8) | (numBytes[3] & 0xFF);
 									UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(2), sessionKey, IV));
 									
 									if(yourToken.verifySignature(my_gs.getPublicKey()))
@@ -443,8 +445,6 @@ public class GroupThread extends Thread
 					else if(message.getObjContents().size() == 2)
 					{
 						response = new Envelope("FAIL");
-						
-						System.out.println("uploading");
 						
 						if(message.getObjContents().get(0) != null)
 						{
@@ -865,27 +865,29 @@ public class GroupThread extends Thread
 	private Key getGroupKey (String groupName, int keyNum, UserToken yourToken)
 	{
 		String requester = yourToken.getSubject();
-		
+		System.out.println(requester);
 		//does the user exist
 		if(my_gs.userList.checkUser(requester))
 		{
 			//does the group exist
-			if(my_gs.groupList.checkGroup(groupName))
-			{
+			// if(my_gs.groupList.checkGroup(groupName))
+			// {
 				//is the user in the group
 				if(my_gs.groupList.checkMember(groupName, requester))
 				{
-					return my_gs.groupList.getKey(groupName, keyNum);
+					System.out.println(my_gs.groupList.getKey(groupName, keyNum));
+					return  my_gs.groupList.getKey(groupName, keyNum);
 				}
 				else
 				{
+					System.out.println("I'M GOING TO KILL MYSELF");
 					return null; //user not in group
 				}
-			}
-			else
-			{
-				return null; //group doesn't exist
-			}
+			// }
+			// else
+			// {
+				// return null; //group doesn't exist
+			// }
 		}
 		else
 		{
@@ -897,29 +899,33 @@ public class GroupThread extends Thread
 	{
 		String requester = yourToken.getSubject();
 		
+		System.out.println("ABCDEFGHIJKLMNOP");
 		//does the user exist
 		if(my_gs.userList.checkUser(requester))
 		{
 			//does the group exist
-			if(my_gs.groupList.checkGroup(groupName))
-			{
+			//if(my_gs.groupList.checkGroup(groupName))
+			//{
 				//is the user in the group
 				if(my_gs.groupList.checkMember(groupName, requester))
 				{
+					System.out.println("BBBBBBBBBBBBBBBBBB");
 					return  my_gs.groupList.getKey(groupName);
 				}
 				else
 				{
+					//System.out.println("not in group");
 					return null; //user not in group
 				}
-			}
-			else
-			{
-				return null; //group doesn't exist
-			}
+			//}
+			//else
+			//{
+			//	return null; //group doesn't exist
+			//}
 		}
 		else
 		{
+			//System.out.println("user DNE");
 			return null; //user doesn't exist
 		}
 	}
