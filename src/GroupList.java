@@ -31,8 +31,6 @@ public class GroupList implements java.io.Serializable
 	//if it already exists, returns true, if not false
 	public synchronized boolean checkGroup(String groupName)
 	{
-		System.out.println("groupList " + groupName);
-		System.out.println(gList);
 		if(gList.containsKey(groupName)) 
 		{
 			return true;

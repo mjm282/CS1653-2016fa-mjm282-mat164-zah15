@@ -9,6 +9,7 @@ import java.math.BigInteger;
 import javax.crypto.KeyGenerator;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.CipherOutputStream;
 
 public class FileClient extends Client implements FileClientInterface {
 
@@ -186,10 +187,25 @@ public class FileClient extends Client implements FileClientInterface {
 					    output.writeObject(env);
 
 					    env = (Envelope)input.readObject();
+						
+						boolean meta = true;
+						
 						while (env.getMessage().compareTo("CHUNK")==0) {
 								try
 								{
-									fos.write((byte[])decryptAES((byte[])env.getObjContents().get(0), sessionKey, IV), 0, (Integer)ser.deserialize(decryptAES((byte[])env.getObjContents().get(1), sessionKey, IV)));
+									if(meta)
+									{
+										meta = false;
+										File mFile = new File(destFile + ".meta");
+										FileOutputStream mFos = new FileOutputStream(mFile);
+										mFile.createNewFile();
+										mFos.write((byte[])decryptAES((byte[])env.getObjContents().get(0), sessionKey, IV), 0, 120);
+										mFos.close();
+									}
+									else
+									{
+										fos.write((byte[])decryptAES((byte[])env.getObjContents().get(0), sessionKey, IV), 0, (Integer)ser.deserialize(decryptAES((byte[])env.getObjContents().get(1), sessionKey, IV)));
+									}
 								} catch (Exception e) {
 									e.printStackTrace();
 								}
@@ -309,8 +325,8 @@ public class FileClient extends Client implements FileClientInterface {
 			SecureRandom ivRand = new SecureRandom();
             byte[] ivBytes = new byte[16];
             ivRand.nextBytes(ivBytes);
-            IvParameterSpec fileIV = new IvParameterSpec(ivBytes);
-			
+			IvParameterSpec fileIV = new IvParameterSpec(ivBytes);
+            
 			Serializer ser = new Serializer();
 			
 			byte[] startBytes = new byte [120];
@@ -338,12 +354,30 @@ public class FileClient extends Client implements FileClientInterface {
 				}
 			}
 			
+			
 			for(int i = 0; i < groupBytes.length; i++)
 			{
 				startBytes[i+20] = groupBytes[i];
 			}
 			
 			boolean firstChunk = true;
+			Cipher encCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+			encCipher.init(Cipher.ENCRYPT_MODE, groupKey, fileIV);
+			File encFile = new File(sourceFile + ".enc");
+			encFile.createNewFile();
+			FileOutputStream fOut = new FileOutputStream(encFile);
+			CipherOutputStream cOut = new CipherOutputStream(fOut, encCipher);
+			int read = 0;
+			byte[] encBuf = new byte[4096];
+			while((read = fis.read(encBuf)) >= 0)
+			{
+				cOut.write(encBuf, 0, read);
+			}				
+			fis.close();
+			cOut.flush();
+			cOut.close();
+			
+			FileInputStream encFis = new FileInputStream(encFile);
 			
 			 do {
 				 byte[] buf = new byte[4096];
@@ -386,7 +420,7 @@ public class FileClient extends Client implements FileClientInterface {
 					}
 					else
 					{
-						n = fis.read(buf); //can throw an IOException
+						n = encFis.read(buf); //can throw an IOException
 					}
 					if (n > 0) {
 						System.out.printf(".");
@@ -401,7 +435,7 @@ public class FileClient extends Client implements FileClientInterface {
 					}	
 					else 
 					{
-						message.addObject(encryptAES(buf, groupKey, fileIV));
+						message.addObject(buf);//(encryptAES(buf, groupKey, fileIV));
 						Integer nSend = new Integer(n);
 						Serializer nByte = new Serializer();
 						byte[] nSer = nByte.serialize(nSend);
@@ -416,8 +450,8 @@ public class FileClient extends Client implements FileClientInterface {
 
 
 			 }
-			 while (fis.available()>0);
-
+			while (encFis.available()>0);
+			
 			 //If server indicates success, return the member list
 			 if(env.getMessage().compareTo("READY")==0)
 			 {
@@ -428,6 +462,8 @@ public class FileClient extends Client implements FileClientInterface {
 				env = (Envelope)input.readObject();
 				if(env.getMessage().compareTo("OK")==0) {
 					System.out.printf("\nFile data upload successful\n");
+					encFis.close();
+					encFile.delete();
 				}
 				else {
 

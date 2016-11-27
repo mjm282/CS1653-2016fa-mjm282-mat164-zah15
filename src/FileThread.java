@@ -228,6 +228,7 @@ public class FileThread extends Thread
 									System.out.println("Token Verified");
 
 									File file = new File("shared_files/"+remotePath.replace('/', '_'));
+									File metaFile = new File("shared_files/"+remotePath.replace('/', '_')+".meta");
 									file.createNewFile();
 									FileOutputStream fos = new FileOutputStream(file);
 									System.out.printf("Successfully created file %s\n", remotePath.replace('/', '_'));
@@ -241,7 +242,10 @@ public class FileThread extends Thread
 										//fos.write((byte[])decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV), 0, (Integer)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV)));
 										if(e.getObjContents().size() == 1)
 										{
-											fos.write((byte[]) e.getObjContents().get(0), 0, 120);
+											metaFile.createNewFile();
+											FileOutputStream tmpfos = new FileOutputStream(metaFile);
+											tmpfos.write((byte[]) e.getObjContents().get(0), 0, 120);
+											tmpfos.close();
 										}
 										else
 										{
@@ -304,30 +308,61 @@ public class FileThread extends Thread
 
 								FileInputStream fis = new FileInputStream(f);
 
+								boolean meta = true;
+								
 								do {
-									byte[] buf = new byte[4096];
-									if (e.getMessage().compareTo("DOWNLOADF")!=0) {
-										System.out.printf("Server error: %s\n", e.getMessage());
-										break;
+									if(meta)
+									{
+										meta = false;
+										File tmpF = new File("shared_files/_"+remotePath.replace('/', '_')+".meta");
+										FileInputStream tfis = new FileInputStream(tmpF);
+										byte[] tbuf = new byte[120];
+										
+										if (e.getMessage().compareTo("DOWNLOADF")!=0) {
+											System.out.printf("Server error: %s\n", e.getMessage());
+											break;
+										}
+										e = new Envelope("CHUNK");
+										int n = tfis.read(tbuf); //can throw an IOException
+										if (n > 0) {
+											System.out.printf(".");
+										} else if (n < 0) {
+											System.out.println("Read error");
+
+										}
+										
+										tfis.close();
+										e.addObject(encryptAES(tbuf, sessionKey, IV));
+										output.writeObject(e);
+										
 									}
-									e = new Envelope("CHUNK");
-									int n = fis.read(buf); //can throw an IOException
-									if (n > 0) {
-										System.out.printf(".");
-									} else if (n < 0) {
-										System.out.println("Read error");
+									else
+									{
+											
+										byte[] buf = new byte[4096];
+										if (e.getMessage().compareTo("DOWNLOADF")!=0) {
+											System.out.printf("Server error: %s\n", e.getMessage());
+											break;
+										}
+										e = new Envelope("CHUNK");
+										int n = fis.read(buf); //can throw an IOException
+										if (n > 0) {
+											System.out.printf(".");
+										} else if (n < 0) {
+											System.out.println("Read error");
+
+										}
+
+
+										e.addObject(encryptAES(buf, sessionKey, IV));
+										Integer nSend = new Integer(n);
+										byte[] nSer = ser.serialize(nSend);
+										byte[] nAES = encryptAES(nSer, sessionKey, IV);
+										e.addObject(nAES);
+
+										output.writeObject(e);
 
 									}
-
-
-									e.addObject(encryptAES(buf, sessionKey, IV));
-									Integer nSend = new Integer(n);
-									byte[] nSer = ser.serialize(nSend);
-									byte[] nAES = encryptAES(nSer, sessionKey, IV);
-									e.addObject(nAES);
-
-									output.writeObject(e);
-
 									e = (Envelope)input.readObject();
 
 

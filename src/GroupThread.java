@@ -126,6 +126,7 @@ public class GroupThread extends Thread
 								byte[] ivBytes = new byte[16];
 								ivRand.nextBytes(ivBytes);
 								IV = new IvParameterSpec(ivBytes);
+								System.out.println(IV);
 								System.out.println("Created IV");
 								// And encrypt the Token!
 								byte[] aesTok = encryptAES(serTok, sessionKey, IV);
@@ -421,7 +422,6 @@ public class GroupThread extends Thread
 							{
 								if(message.getObjContents().get(2) != null)
 								{
-									System.out.println("###########################################");
 									String groupName = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));
 									//int keyNum = (Integer)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
 									byte[] numBytes = decryptAES((byte[]) message.getObjContents().get(1), sessionKey, IV);
@@ -865,29 +865,26 @@ public class GroupThread extends Thread
 	private Key getGroupKey (String groupName, int keyNum, UserToken yourToken)
 	{
 		String requester = yourToken.getSubject();
-		System.out.println(requester);
 		//does the user exist
 		if(my_gs.userList.checkUser(requester))
 		{
 			//does the group exist
-			// if(my_gs.groupList.checkGroup(groupName))
-			// {
+			if(my_gs.groupList.checkGroup(groupName))
+			{
 				//is the user in the group
 				if(my_gs.groupList.checkMember(groupName, requester))
 				{
-					System.out.println(my_gs.groupList.getKey(groupName, keyNum));
 					return  my_gs.groupList.getKey(groupName, keyNum);
 				}
 				else
 				{
-					System.out.println("I'M GOING TO KILL MYSELF");
 					return null; //user not in group
 				}
-			// }
-			// else
-			// {
-				// return null; //group doesn't exist
-			// }
+			}
+			else
+			{
+				return null; //group doesn't exist
+			}
 		}
 		else
 		{
@@ -898,8 +895,6 @@ public class GroupThread extends Thread
 	private Key getGroupKey (String groupName, UserToken yourToken)
 	{
 		String requester = yourToken.getSubject();
-		
-		System.out.println("ABCDEFGHIJKLMNOP");
 		//does the user exist
 		if(my_gs.userList.checkUser(requester))
 		{
@@ -909,7 +904,6 @@ public class GroupThread extends Thread
 				//is the user in the group
 				if(my_gs.groupList.checkMember(groupName, requester))
 				{
-					System.out.println("BBBBBBBBBBBBBBBBBB");
 					return  my_gs.groupList.getKey(groupName);
 				}
 				else

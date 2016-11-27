@@ -9,7 +9,7 @@ import org.bouncycastle.*;
 import java.security.*;
 import java.math.BigInteger;
 import org.bouncycastle.*;
-import java.nio.ByteBuffer; //serializer was throwing errors to I decided to try a ByteBuffer
+import javax.crypto.CipherOutputStream;
 
 public class GroupClient extends Client implements GroupClientInterface
 {
@@ -417,10 +417,8 @@ public class GroupClient extends Client implements GroupClientInterface
 			{
 				ArrayList<Object> ret = new ArrayList<Object>();
 				Key gKey = new SecretKeySpec(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV), "AES");
-				System.out.println("group key = " + gKey.toString());
 				ret.add(gKey);
 				ret.add(response.getObjContents().get(1));
-				System.out.println(ret);
 				return ret;
 //				Key retKey = new SecretKeySpec((byte[])ser.deserialize(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV)), "AES");
 //				return retKey;
@@ -459,77 +457,63 @@ public class GroupClient extends Client implements GroupClientInterface
 		File outFile = new File(dFile);
 		outFile.createNewFile();
 		
-		//creates a file input stream and reads the first chunk from the file
-		//also creates a file output stream to save the decrypted file contents
-		FileInputStream fis = new FileInputStream(inFile);
-		FileOutputStream fos = new FileOutputStream(outFile);
 		
-		boolean firstChunk = true;
 		
-		do{
-			//reads a full chunk into memory
-			byte[] buf = new byte[4096];
-			int in;// = fis.read(buf);
-
-			//if this is the first chunk we need to get the key number, group, and IV out of the file
-			if(firstChunk)
+		//gets metadata from.meta file and parses it out into all of the needed keys/IV/etc.
+		File tfile = new File(dFile + ".meta");
+		FileInputStream tfis = new FileInputStream(tfile);
+		tfis.read(startBytes);
+		tfis.close();
+		tfile.delete();
+		for(int i = 0; i < 120; i++)
+		{
+			if(i < 4)
 			{
-				firstChunk = false;
-				
-				fis.read(startBytes);
-				
-				for(int i = 0; i < 120; i++)
-				{
-					if(i < 4)
-					{
-						numBytes[i] = startBytes[i];
-						//System.out.println(numBytes[i]);
-					}
-					else if(i < 20)
-					{
-						ivBytes[i-4] = startBytes[i];
-						//System.out.println(ivBytes[i-4]);
-					}
-					else
-					{
-						groupBytes[i-20] = startBytes[i];
-						//System.out.println(groupBytes[i-20]);
-					}
-				}
-
-				keyNum = ((numBytes[0] & 0xFF) << 24) | ((numBytes[1] & 0xFF) << 16) | ((numBytes[2] & 0xFF) << 8) | (numBytes[3] & 0xFF);
-				
-				group = new String(groupBytes).trim();
-				System.out.println(group.length());
-				
-				fileIV = new IvParameterSpec(ivBytes);
-				groupKey = getGroupKey(group, keyNum, token);
-				
-				System.out.println("groupKey =  " + groupKey);
-				
-				System.out.println(keyNum);
-				System.out.println(fileIV);
-				System.out.println(group);
-				
-				//byte[] tmpBuf = new byte[3960];
-				//in = fis.read(tmpBuf);
-				
-				//fos.write((byte[]) decryptAES(tmpBuf, groupKey, fileIV));
-				
-				//fos.write((byte[]) decryptAES(buf, groupKey, fileIV));
-			
+				numBytes[i] = startBytes[i];
+				//System.out.println(numBytes[i]);
+			}
+			else if(i < 20)
+			{
+				ivBytes[i-4] = startBytes[i];
+				//System.out.println(ivBytes[i-4]);
 			}
 			else
 			{
-				in = fis.read(buf);
-				fos.write((byte[]) decryptAES(buf, groupKey, fileIV), 0, in);
+				groupBytes[i-20] = startBytes[i];
+				//System.out.println(groupBytes[i-20]);
 			}
+		}
+		
+		
+		keyNum = ((numBytes[0] & 0xFF) << 24) | ((numBytes[1] & 0xFF) << 16) | ((numBytes[2] & 0xFF) << 8) | (numBytes[3] & 0xFF);
+		
+		group = new String(groupBytes).trim();
+		
+		//create IV from input and get group AES key
+		fileIV = new IvParameterSpec(ivBytes);	
+		groupKey = getGroupKey(group, keyNum, token);
+		
+		//creates a file input stream and reads the first chunk from the file
+		//also creates a CipherOutputStream to decrypt and store the downloaded file
+		Cipher decCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		decCipher.init(Cipher.DECRYPT_MODE, groupKey, fileIV);
+		FileInputStream fis = new FileInputStream(inFile);
+		FileOutputStream fos = new FileOutputStream(outFile);
+		CipherOutputStream cos = new CipherOutputStream(fos, decCipher);
+
+		do{
+			//reads a full chunk into memory
+			byte[] buf = new byte[4096];
+			int in = fis.read(buf);
+			cos.write(buf, 0, in);
+			//fos.write((byte[]) decryptAES(buf, groupKey, fileIV), 0, in);
+				
 		}while(fis.available() > 0);
 		
-		inFile.delete();
 		
 		fos.close();
 		fis.close();
+		inFile.delete();
 		
 		}catch(Exception e){
 			e.printStackTrace();
@@ -584,6 +568,11 @@ public class GroupClient extends Client implements GroupClientInterface
 		return byteCipherText;
 	}
 
+	// public static byte[] encryptECB(byte[] plainText, Key AESkey) throws Exception
+	// {
+		// Cipher aesCipher = Cipher.getInstance("AES", "BC");
+		
+	// }
 	
 	
 	 //TODO implement encryption and decryption for message passing
