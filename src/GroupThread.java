@@ -58,19 +58,15 @@ public class GroupThread extends Thread
 					macList = new ArrayList<Object>(message.getObjContents().subList(0, message.getObjContents().size()-1));
 					if(counterGC >= checkCount)
 					{
-						response = new Envelope("FAIL");
-						response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
-						response.addObject(generateHMAC(response.getObjContents(), sessionKey));
-						output.writeObject(response);
-						counterGS++;
+						System.out.println("Replay/Reorder detected: terminating connection");
+						socket.close();
+						proceed = false;
 					}
 					else if(message.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 					{
-						response = new Envelope("FAIL-BAD-HMAC");
-						response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
-						response.addObject(generateHMAC(response.getObjContents(), sessionKey));
-						output.writeObject(response);
-						counterGS++;
+						System.out.println("Modification detected: terminating connection");
+						socket.close();
+						proceed = false;
 					}
 					else
 					{
@@ -122,10 +118,9 @@ public class GroupThread extends Thread
 						checkCount = decryptCounterRSA((byte[])message.getObjContents().get(2), my_gs.getPrivateKey());
 						if(counterGC >= checkCount)
 						{
-							response = new Envelope("FAIL");
-							response.addObject(encryptCounterRSA(counterGS, userKey));
-							output.writeObject(response);
-							counterGS++;
+							System.out.println("Replay/Reorder detected: terminating connection");
+							socket.close();
+							proceed = false;
 						}
 						else
 						{
@@ -149,10 +144,9 @@ public class GroupThread extends Thread
 						checkCount = decryptCounterRSA((byte[])message.getObjContents().get(2), my_gs.getPrivateKey());
 						if(counterGC >= checkCount)
 						{
-							response = new Envelope("FAIL");
-							response.addObject(encryptCounterRSA(counterGS, userKey));
-							output.writeObject(response);
-							counterGS++;
+							System.out.println("Replay/Reorder detected: terminating connection");
+							socket.close();
+							proceed = false;
 						}
 						else
 						{

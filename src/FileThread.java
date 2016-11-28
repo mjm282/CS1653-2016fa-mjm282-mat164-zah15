@@ -78,10 +78,9 @@ public class FileThread extends Thread
 			checkCount = decryptCounterRSA((byte[])response.getObjContents().get(1), my_fs.getPublicKey());
 			if(counterFC >= checkCount)
 			{
-				message = new Envelope("FAIL");
-				message.addObject(counterFS);
-				output.writeObject(message);
-				counterFS++;
+				System.out.println("Replay/Reorder detected: terminating connection");
+				socket.close();
+				proceed = false;
 			}
 			else
 			{
@@ -127,10 +126,9 @@ public class FileThread extends Thread
 					checkCount = decryptAEScounter((byte[])response.getObjContents().get(4), sessionKey, IV);
 					if(counterFC >= checkCount)
 					{
-						message = new Envelope("FAIL");
-						message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
-						output.writeObject(message);
-						counterFS++;
+						System.out.println("Replay/Reorder detected: terminating connection");
+						socket.close();
+						proceed = false;
 					}
 					else
 					{
@@ -205,19 +203,15 @@ public class FileThread extends Thread
 					macList = new ArrayList<Object>(e.getObjContents().subList(0, e.getObjContents().size()-1));
 					if(counterFC >= checkCount)
 					{
-						message = new Envelope("FAIL");
-						message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
-						message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-						output.writeObject(message);
-						counterFS++;
+						System.out.println("Replay/Reorder detected: terminating connection");
+						socket.close();
+						proceed = false;
 					}
 					else if(e.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 					{
-						message = new Envelope("FAIL-BAD-HMAC");
-						message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
-						message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-						output.writeObject(message);
-						counterFS++;
+						System.out.println("Modification detected: terminating connection");
+						socket.close();
+						proceed = false;
 					}
 					else
 					{
@@ -327,19 +321,15 @@ public class FileThread extends Thread
 									macList = new ArrayList<Object>(e.getObjContents().subList(0, e.getObjContents().size()-1));
 									if(counterFC >= checkCount)
 									{
-										message = new Envelope("FAIL");
-										message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
-										message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-										output.writeObject(message);
-										counterFS++;
+										System.out.println("Replay/Reorder detected: terminating connection");
+										socket.close();
+										proceed = false;
 									}
 									else if(e.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 									{
-										message = new Envelope("FAIL-BAD-HMAC");
-										message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
-										message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-										output.writeObject(message);
-										counterFS++;
+										System.out.println("Modification detected: terminating connection");
+										socket.close();
+										proceed = false;
 									}
 									else
 									{
@@ -372,19 +362,15 @@ public class FileThread extends Thread
 										macList = new ArrayList<Object>(e.getObjContents().subList(0, e.getObjContents().size()-1));
 										if(counterFC >= checkCount)
 										{
-											message = new Envelope("FAIL");
-											message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
-											message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-											output.writeObject(message);
-											counterFS++;
+											System.out.println("Replay/Reorder detected: terminating connection");
+											socket.close();
+											proceed = false;
 										}
 										else if(e.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 										{
-											message = new Envelope("FAIL-BAD-HMAC");
-											message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
-											message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-											output.writeObject(message);
-											counterFS++;
+											System.out.println("Modification detected: terminating connection");
+											socket.close();
+											proceed = false;
 										}
 										else
 										{
@@ -521,19 +507,15 @@ public class FileThread extends Thread
 									macList = new ArrayList<Object>(e.getObjContents().subList(0, e.getObjContents().size()-1));
 									if(counterFC >= checkCount)
 									{
-										message = new Envelope("FAIL");
-										message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
-										message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-										output.writeObject(message);
-										counterFS++;
+										System.out.println("Replay/Reorder detected: terminating connection");
+										socket.close();
+										proceed = false;
 									}
 									else if(e.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 									{
-										message = new Envelope("FAIL-BAD-HMAC");
-										message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
-										message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-										output.writeObject(message);
-										counterFS++;
+										System.out.println("Modification detected: terminating connection");
+										socket.close();
+										proceed = false;
 									}
 									else
 									{
@@ -558,19 +540,15 @@ public class FileThread extends Thread
 									macList = new ArrayList<Object>(e.getObjContents().subList(0, e.getObjContents().size()-1));
 									if(counterFC >= checkCount)
 									{
-										message = new Envelope("FAIL");
-										message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
-										message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-										output.writeObject(message);
-										counterFS++;
+										System.out.println("Replay/Reorder detected: terminating connection");
+										socket.close();
+										proceed = false;
 									}
 									else if(e.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 									{
-										message = new Envelope("FAIL-BAD-HMAC");
-										message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
-										message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-										output.writeObject(message);
-										counterFS++;
+										System.out.println("Modification detected: terminating connection");
+										socket.close();
+										proceed = false;
 									}
 									else
 									{

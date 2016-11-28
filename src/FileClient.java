@@ -60,10 +60,9 @@ public class FileClient extends Client implements FileClientInterface {
 			checkCount = (int)response.getObjContents().get(1);
 			if(counterFS >= checkCount) //Check to make sure counter is greaterthan previous counter
 			{
-				response = new Envelope("FAIL");
-				response.addObject(counterFC);
-				output.writeObject(response);
-				counterFC++;
+				System.out.println("Replay/Reorder detected: terminating connection");
+				sock.close();
+
 			}
 			else
 			{
@@ -102,10 +101,9 @@ public class FileClient extends Client implements FileClientInterface {
 				checkCount = (int)response.getObjContents().get(1);
 				if(counterFS >= checkCount)
 				{
-					message = new Envelope("FAIL");
-					message.addObject(encryptCounterRSA(counterFC, sPubKey));
-					output.writeObject(message);
-					counterFC++;
+					System.out.println("Replay/Reorder detected: terminating connection");
+					sock.close();
+
 				}
 				else
 				{
@@ -160,19 +158,15 @@ public class FileClient extends Client implements FileClientInterface {
 			macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
 			if(counterFS >= checkCount)
 			{
-				message = new Envelope("FAIL");
-				message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-				output.writeObject(message);
-				counterFC++;
+				System.out.println("Replay/Reorder detected: terminating connection");
+				sock.close();
+
 			}
 			else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 			{
-				message = new Envelope("FAIL-BAD-HMAC");
-				message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-				output.writeObject(message);
-				counterFC++;
+				System.out.println("Modification detected: terminating connection");
+				sock.close();
+
 			}
 			else
 			{
@@ -223,19 +217,15 @@ public class FileClient extends Client implements FileClientInterface {
 				macList = new ArrayList<Object>(env.getObjContents().subList(0, env.getObjContents().size()-1));
 				if(counterFS >= checkCount)
 				{
-					message = new Envelope("FAIL");
-					message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterFC++;
+					System.out.println("Replay/Reorder detected: terminating connection");
+					sock.close();
+
 				}
 				else if(env.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 				{
-					message = new Envelope("FAIL-BAD-HMAC");
-					message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterFC++;
+					System.out.println("Modification detected: terminating connection");
+					sock.close();
+
 				}
 				else
 				{
@@ -288,19 +278,15 @@ public class FileClient extends Client implements FileClientInterface {
 							macList = new ArrayList<Object>(env.getObjContents().subList(0, env.getObjContents().size()-1));
 							if(counterFS >= checkCount)
 							{
-								message = new Envelope("FAIL");
-								message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-								message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-								output.writeObject(message);
-								counterFC++;
+								System.out.println("Replay/Reorder detected: terminating connection");
+								sock.close();
+
 							}
 							else if(env.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 							{
-								message = new Envelope("FAIL-BAD-HMAC");
-								message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-								message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-								output.writeObject(message);
-								counterFC++;
+								System.out.println("Modification detected: terminating connection");
+								sock.close();
+
 							}
 							else
 							{
@@ -340,19 +326,15 @@ public class FileClient extends Client implements FileClientInterface {
 								macList = new ArrayList<Object>(env.getObjContents().subList(0, env.getObjContents().size()-1));
 								if(counterFS >= checkCount)
 								{
-									message = new Envelope("FAIL");
-									message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-									message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-									output.writeObject(message);
-									counterFC++;
+									System.out.println("Replay/Reorder detected: terminating connection");
+									sock.close();
+
 								}
 								else if(env.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 								{
-									message = new Envelope("FAIL-BAD-HMAC");
-									message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-									message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-									output.writeObject(message);
-									counterFC++;
+									System.out.println("Modification detected: terminating connection");
+									sock.close();
+
 								}
 								else
 								{
@@ -419,19 +401,15 @@ public class FileClient extends Client implements FileClientInterface {
 			 macList = new ArrayList<Object>(e.getObjContents().subList(0, e.getObjContents().size()-1));
 			 if(counterFS >= checkCount)
 			 {
-				 message = new Envelope("FAIL");
-				 message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-				 message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-				 output.writeObject(message);
-				 counterFC++;
+				 System.out.println("Replay/Reorder detected: terminating connection");
+				 sock.close();
+
 			 }
 			 else if(e.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 			 {
-				 message = new Envelope("FAIL-BAD-HMAC");
-				 message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-				 message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-				 output.writeObject(message);
-				 counterFC++;
+				 System.out.println("Modification detected: terminating connection");
+				 sock.close();
+
 			 }
 			 else
 			 {
@@ -487,19 +465,15 @@ public class FileClient extends Client implements FileClientInterface {
 			 macList = new ArrayList<Object>(env.getObjContents().subList(0, env.getObjContents().size()-1));
 			 if(counterFS >= checkCount)
 			 {
-				 message = new Envelope("FAIL");
-				 message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-				 message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-				 output.writeObject(message);
-				 counterFC++;
+				 System.out.println("Replay/Reorder detected: terminating connection");
+				 sock.close();
+
 			 }
 			 else if(env.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 			 {
-				 message = new Envelope("FAIL-BAD-HMAC");
-				 message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-				 message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-				 output.writeObject(message);
-				 counterFC++;
+				 System.out.println("Modification detected: terminating connection");
+				 sock.close();
+
 			 }
 			 else
 			 {
@@ -653,19 +627,15 @@ public class FileClient extends Client implements FileClientInterface {
 					macList = new ArrayList<Object>(env.getObjContents().subList(0, env.getObjContents().size()-1));
 					if(counterFS >= checkCount)
 					{
-						message = new Envelope("FAIL");
-						message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-						message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-						output.writeObject(message);
-						counterFC++;
+						System.out.println("Replay/Reorder detected: terminating connection");
+						sock.close();
+
 					}
 					else if(env.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 					{
-						message = new Envelope("FAIL-BAD-HMAC");
-						message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-						message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-						output.writeObject(message);
-						counterFC++;
+						System.out.println("Modification detected: terminating connection");
+						sock.close();
+
 					}
 					else
 					{
@@ -690,19 +660,15 @@ public class FileClient extends Client implements FileClientInterface {
 				macList = new ArrayList<Object>(env.getObjContents().subList(0, env.getObjContents().size()-1));
 				if(counterFS >= checkCount)
 				{
-					message = new Envelope("FAIL");
-					message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterFC++;
+					System.out.println("Replay/Reorder detected: terminating connection");
+					sock.close();
+
 				}
 				else if(env.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 				{
-					message = new Envelope("FAIL-BAD-HMAC");
-					message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterFC++;
+					System.out.println("Modification detected: terminating connection");
+					sock.close();
+
 				}
 				else
 				{

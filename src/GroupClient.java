@@ -93,10 +93,8 @@ public class GroupClient extends Client implements GroupClientInterface
 			checkCount = decryptCounterRSA((byte[])response.getObjContents().get(1), cPrivKey);
 			if(counterGS >= checkCount)
 			{
-				message = new Envelope("FAIL");
-				message.addObject(encryptCounterRSA(counterGC, sPubKey));
-				output.writeObject(message);
-				counterGC++;
+				System.out.println("Replay/Reorder detected: terminating connection");
+				disconnect();
 			}
 			else
 			{
@@ -143,10 +141,8 @@ public class GroupClient extends Client implements GroupClientInterface
 						checkCount = decryptAEScounter((byte[])response.getObjContents().get(4), sessionKey, IV);
 						if(counterGS >= checkCount)
 						{
-							response = new Envelope("FAIL");
-							response.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-							output.writeObject(response);
-							counterGC++;
+							System.out.println("Replay/Reorder detected: terminating connection");
+							disconnect();
 						}
 						else
 						{
@@ -192,19 +188,14 @@ public class GroupClient extends Client implements GroupClientInterface
 				macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
 				if(counterGS >= checkCount)
 				{
-					message = new Envelope("FAIL");
-					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterGC++;
+					System.out.println("Replay/Reorder detected: terminating connection");
+					disconnect();
 				}
 				else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 				{
-					message = new Envelope("FAIL-BAD-HMAC");
-					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterGC++;				}
+					System.out.println("Modification detected: terminating connection");
+					disconnect();
+				}
 				else
 				{
 					counterGS = checkCount;
@@ -246,19 +237,14 @@ public class GroupClient extends Client implements GroupClientInterface
 				macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
 				if(counterGS >= checkCount)
 				{
-					message = new Envelope("FAIL");
-					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterGC++;
+					System.out.println("Replay/Reorder detected: terminating connection");
+					disconnect();
 				}
 				else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 				{
-					message = new Envelope("FAIL-BAD-HMAC");
-					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterGC++;				}
+					System.out.println("Modification detected: terminating connection");
+					disconnect();
+				}
 				else
 				{
 					counterGS = checkCount;
@@ -303,19 +289,13 @@ public class GroupClient extends Client implements GroupClientInterface
 				macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
 				if(counterGS >= checkCount)
 				{
-					message = new Envelope("FAIL");
-					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterGC++;
+					System.out.println("Replay/Reorder detected: terminating connection");
+					disconnect();
 				}
 				else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 				{
-					message = new Envelope("FAIL-BAD-HMAC");
-					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterGC++;
+					System.out.println("Modification detected: terminating connection");
+					disconnect();
 				}
 				else
 				{
@@ -357,19 +337,14 @@ public class GroupClient extends Client implements GroupClientInterface
 				macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
 				if(counterGS >= checkCount)
 				{
-					message = new Envelope("FAIL");
-					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterGC++;
+					System.out.println("Replay/Reorder detected: terminating connection");
+					disconnect();
 				}
 				else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 				{
-					message = new Envelope("FAIL-BAD-HMAC");
-					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterGC++;				}
+					System.out.println("Modification detected: terminating connection");
+					disconnect();
+				}
 				else
 				{
 					counterGS = checkCount;
@@ -412,19 +387,13 @@ public class GroupClient extends Client implements GroupClientInterface
 			 macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
 			 if(counterGS >= checkCount)
 			 {
-				 message = new Envelope("FAIL");
-				 message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-				 message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-				 output.writeObject(message);
-				 counterGC++;
+				 System.out.println("Replay/Reorder detected: terminating connection");
+				 disconnect();
 			 }
 			 else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 			 {
-				 message = new Envelope("FAIL-BAD-HMAC");
-				 message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-				 message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-				 output.writeObject(message);
-				 counterGC++;
+				 System.out.println("Modification detected: terminating connection");
+				 disconnect();
 				}
 			 else
 			 {
@@ -472,19 +441,13 @@ public class GroupClient extends Client implements GroupClientInterface
 				macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
 				if(counterGS >= checkCount)
 				{
-					message = new Envelope("FAIL");
-					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterGC++;
+					System.out.println("Replay/Reorder detected: terminating connection");
+					disconnect();
 				}
 				else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 				{
-					message = new Envelope("FAIL-BAD-HMAC");
-					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterGC++;
+					System.out.println("Modification detected: terminating connection");
+					disconnect();
 				}
 				else
 				{
@@ -527,19 +490,13 @@ public class GroupClient extends Client implements GroupClientInterface
 				macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
 				if(counterGS >= checkCount)
 				{
-					message = new Envelope("FAIL");
-					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterGC++;
+					System.out.println("Replay/Reorder detected: terminating connection");
+					disconnect();
 				}
 				else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 				{
-					message = new Envelope("FAIL-BAD-HMAC");
-					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-					output.writeObject(message);
-					counterGC++;
+					System.out.println("Modification detected: terminating connection");
+					disconnect();
 				}
 				else
 				{
@@ -595,19 +552,13 @@ public class GroupClient extends Client implements GroupClientInterface
 			macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
 			if(counterGS >= checkCount)
 			{
-				message = new Envelope("FAIL");
-				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-				output.writeObject(message);
-				counterGC++;
+				System.out.println("Replay/Reorder detected: terminating connection");
+				disconnect();
 			}
 			else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 			{
-				message = new Envelope("FAIL-BAD-HMAC");
-				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-				output.writeObject(message);
-				counterGC++;
+				System.out.println("Modification detected: terminating connection");
+				disconnect();
 			}
 			else
 			{
@@ -652,19 +603,13 @@ public class GroupClient extends Client implements GroupClientInterface
 			macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
 			if(counterGS >= checkCount)
 			{
-				message = new Envelope("FAIL");
-				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-				output.writeObject(message);
-				counterGC++;
+				System.out.println("Replay/Reorder detected: terminating connection");
+				disconnect();
 			}
 			else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
 			{
-				message = new Envelope("FAIL-BAD-HMAC");
-				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
-				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
-				output.writeObject(message);
-				counterGC++;
+				System.out.println("Modification detected: terminating connection");
+				disconnect();
 			}
 			else
 			{
