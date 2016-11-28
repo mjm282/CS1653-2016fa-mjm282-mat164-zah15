@@ -681,7 +681,6 @@ public class GroupClient extends Client implements GroupClientInterface
 //				Key retKey = new SecretKeySpec((byte[])ser.deserialize(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV)), "AES");
 //				return retKey;
 			}
-
 			return null;
 		}
 		catch(Exception e)

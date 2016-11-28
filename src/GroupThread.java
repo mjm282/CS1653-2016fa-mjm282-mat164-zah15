@@ -507,7 +507,7 @@ public class GroupThread extends Thread
 					{
 						response = new Envelope("FAIL");
 					}
-					else if(message.getObjContents().size() == 3)
+					else if(message.getObjContents().size() == 5)
 					{
 						response = new Envelope("FAIL");
 						if(message.getObjContents().get(0) != null)
@@ -536,7 +536,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
-					else if(message.getObjContents().size() == 2)
+					else if(message.getObjContents().size() == 4)
 					{
 						response = new Envelope("FAIL");
 

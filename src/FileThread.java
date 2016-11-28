@@ -349,7 +349,7 @@ public class FileThread extends Thread
 									while (e.getMessage().compareTo("CHUNK")==0) {
 										//server will no longer be decrypting the file as everything will be stored encrypted with group keys
 										//fos.write((byte[])decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV), 0, (Integer)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV)));
-										if(e.getObjContents().size() == 1)
+										if(e.getObjContents().size() == 3)
 										{
 											metaFile.createNewFile();
 											FileOutputStream tmpfos = new FileOutputStream(metaFile);
@@ -366,6 +366,7 @@ public class FileThread extends Thread
 										response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 										output.writeObject(response);
 										counterFS++;
+
 										e = (Envelope)input.readObject();
 										checkCount = decryptAEScounter((byte[])e.getCounter(), sessionKey, IV);
 										macList = new ArrayList<Object>(e.getObjContents().subList(0, e.getObjContents().size()-1));
