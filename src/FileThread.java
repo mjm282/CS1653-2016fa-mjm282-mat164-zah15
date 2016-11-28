@@ -15,6 +15,7 @@ import java.security.*;
 import java.math.BigInteger;
 import javax.crypto.KeyGenerator;
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -40,6 +41,11 @@ public class FileThread extends Thread
 
 		Serializer ser = new Serializer();
 
+		ArrayList<Object> macList = null;
+		int checkCount = -1;
+		int counterFC = -1;
+		int counterFS = -1;
+
 		//TODO file auth
 		//send public key in plain text
 			//in fileclient they will calculate the sha256 hash of the key
@@ -55,16 +61,32 @@ public class FileThread extends Thread
 			System.out.println("*** New connection from " + socket.getInetAddress() + ":" + socket.getPort() + "***");
 			final ObjectInputStream input = new ObjectInputStream(socket.getInputStream());
 			final ObjectOutputStream output = new ObjectOutputStream(socket.getOutputStream());
+			counterFS = 0;
 
 			//Send public key generated from FileServer
 			Envelope message = null;
 			message = new Envelope("SHAKE");
 			message.addObject(my_fs.getPublicKey());
+			message.addObject(counterFS); //Send counter
 			output.writeObject(message);
+			counterFS++; //Increment the counter for the next message
 
 			//Receive challenge and decrypt with private key
 			Envelope response = null;
 			response = (Envelope)input.readObject();
+			//But first check the counter
+			checkCount = decryptCounterRSA((byte[])response.getObjContents().get(1), my_fs.getPublicKey());
+			if(counterFC >= checkCount)
+			{
+				message = new Envelope("FAIL");
+				message.addObject(counterFS);
+				output.writeObject(message);
+				counterFS++;
+			}
+			else
+			{
+				counterFC = checkCount;
+			}
 			privKey = my_fs.getPrivateKey();
 			if(response.getMessage().equals("OK"))
 			{
@@ -76,7 +98,9 @@ public class FileThread extends Thread
 				//Send back plaintext challenge
 				message = new Envelope("OK");
 				message.addObject(C1);
+				message.addObject(counterFS);
 				output.writeObject(message);
+				counterFS++;
 
 				//wait for a response
 				response = (Envelope)input.readObject();
@@ -99,6 +123,35 @@ public class FileThread extends Thread
 					Serializer mySerializer = new Serializer();
 					uToken = (UserToken)mySerializer.deserialize(serTok);
 
+					// Check the counter
+					checkCount = decryptAEScounter((byte[])response.getObjContents().get(4), sessionKey, IV);
+					if(counterFC >= checkCount)
+					{
+						message = new Envelope("FAIL");
+						message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+						output.writeObject(message);
+						counterFS++;
+					}
+					else
+					{
+						counterFC = checkCount;
+					}
+
+					// Verify the token
+					if(verifyToken(uToken, gsPubKey))
+					{
+						message = new Envelope("OK");
+						message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+						message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+						output.writeObject(message);
+						counterFS++;
+					}
+					else
+					{
+						System.out.println("Token not verified, terminiating connection");
+						socket.close();
+						proceed = false;
+					}
 					//generate a current timestamp to compare to the one from token
 					long unixTime = System.currentTimeMillis() / 1000L;
 					long tokTime = uToken.getTimestamp();
@@ -115,7 +168,9 @@ public class FileThread extends Thread
 			else
 			{
 				message = new Envelope("FAIL");
+				message.addObject(counterFS);
 				output.writeObject(message);
+				counterFS++;
 			}
 
 			/*
@@ -144,6 +199,31 @@ public class FileThread extends Thread
 			{
 				Envelope e = (Envelope)input.readObject();
 				System.out.println("Request received: " + e.getMessage());
+				if(e.getMessage().compareTo("DISCONNECT")!=0)
+				{
+					checkCount = decryptAEScounter((byte[])e.getCounter(), sessionKey, IV);
+					macList = new ArrayList<Object>(e.getObjContents().subList(0, e.getObjContents().size()-1));
+					if(counterFC >= checkCount)
+					{
+						message = new Envelope("FAIL");
+						message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+						message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+						output.writeObject(message);
+						counterFS++;
+					}
+					else if(e.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+					{
+						message = new Envelope("FAIL-BAD-HMAC");
+						message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+						message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+						output.writeObject(message);
+						counterFS++;
+					}
+					else
+					{
+						counterFC = checkCount;
+					}
+				}
 
 				// Handler to list files that this user is allowed to see
 				if(e.getMessage().equals("LFILES"))
@@ -189,7 +269,10 @@ public class FileThread extends Thread
 							}
 						}
 					}
+					response.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response); // Send back any responce
+					counterFS++;
 				}
 				if(e.getMessage().equals("UPLOADF"))
 				{
@@ -234,13 +317,39 @@ public class FileThread extends Thread
 									System.out.printf("Successfully created file %s\n", remotePath.replace('/', '_'));
 
 									response = new Envelope("READY"); //Success
+									response.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+									response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 									output.writeObject(response);
-									
+									counterFS++;
+
 									e = (Envelope)input.readObject();
+									checkCount = decryptAEScounter((byte[])e.getCounter(), sessionKey, IV);
+									macList = new ArrayList<Object>(e.getObjContents().subList(0, e.getObjContents().size()-1));
+									if(counterFC >= checkCount)
+									{
+										message = new Envelope("FAIL");
+										message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+										message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+										output.writeObject(message);
+										counterFS++;
+									}
+									else if(e.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+									{
+										message = new Envelope("FAIL-BAD-HMAC");
+										message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+										message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+										output.writeObject(message);
+										counterFS++;
+									}
+									else
+									{
+										counterFC = checkCount;
+									}
+
 									while (e.getMessage().compareTo("CHUNK")==0) {
 										//server will no longer be decrypting the file as everything will be stored encrypted with group keys
 										//fos.write((byte[])decryptAES((byte[])e.getObjContents().get(0), sessionKey, IV), 0, (Integer)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV)));
-										if(e.getObjContents().size() == 1)
+										if(e.getObjContents().size() == 3)
 										{
 											metaFile.createNewFile();
 											FileOutputStream tmpfos = new FileOutputStream(metaFile);
@@ -249,12 +358,39 @@ public class FileThread extends Thread
 										}
 										else
 										{
-											fos.write((byte[])e.getObjContents().get(0), 0, (Integer)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV)));					
+											fos.write((byte[])e.getObjContents().get(0), 0, (Integer)ser.deserialize(decryptAES((byte[])e.getObjContents().get(1), sessionKey, IV)));
 										}
-										
+
 										response = new Envelope("READY"); //Success
+										response.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+										response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 										output.writeObject(response);
+										counterFS++;
+
 										e = (Envelope)input.readObject();
+										checkCount = decryptAEScounter((byte[])e.getCounter(), sessionKey, IV);
+										macList = new ArrayList<Object>(e.getObjContents().subList(0, e.getObjContents().size()-1));
+										if(counterFC >= checkCount)
+										{
+											message = new Envelope("FAIL");
+											message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+											message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+											output.writeObject(message);
+											counterFS++;
+										}
+										else if(e.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+										{
+											message = new Envelope("FAIL-BAD-HMAC");
+											message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+											message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+											output.writeObject(message);
+											counterFS++;
+										}
+										else
+										{
+											counterFC = checkCount;
+										}
+
 									}
 
 									if(e.getMessage().compareTo("EOF")==0) {
@@ -271,8 +407,10 @@ public class FileThread extends Thread
 							}
 						}
 					}
-
+					response.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
+					counterFS++;
 				}
 				else if (e.getMessage().compareTo("DOWNLOADF")==0) {
 
@@ -282,13 +420,19 @@ public class FileThread extends Thread
 					if (sf == null) {
 						System.out.printf("Error: File %s doesn't exist\n", remotePath);
 						e = new Envelope("ERROR_FILEMISSING");
+						e.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+						e.addObject(generateHMAC(e.getObjContents(), sessionKey));
 						output.writeObject(e);
+						counterFS++;
 
 					}
 					else if (!t.getGroups().contains(sf.getGroup())){
 						System.out.printf("Error user %s doesn't have permission\n", t.getSubject());
 						e = new Envelope("ERROR_PERMISSION");
+						e.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+						e.addObject(generateHMAC(e.getObjContents(), sessionKey));
 						output.writeObject(e);
+						counterFS++;
 					}
 					else {
 
@@ -298,7 +442,10 @@ public class FileThread extends Thread
 						if (!f.exists()) {
 							System.out.printf("Error file %s missing from disk\n", "_"+remotePath.replace('/', '_'));
 							e = new Envelope("ERROR_NOTONDISK");
+							e.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+							e.addObject(generateHMAC(e.getObjContents(), sessionKey));
 							output.writeObject(e);
+							counterFS++;
 
 						}
 						else {
@@ -309,7 +456,7 @@ public class FileThread extends Thread
 								FileInputStream fis = new FileInputStream(f);
 
 								boolean meta = true;
-								
+
 								do {
 									if(meta)
 									{
@@ -317,7 +464,7 @@ public class FileThread extends Thread
 										File tmpF = new File("shared_files/_"+remotePath.replace('/', '_')+".meta");
 										FileInputStream tfis = new FileInputStream(tmpF);
 										byte[] tbuf = new byte[120];
-										
+
 										if (e.getMessage().compareTo("DOWNLOADF")!=0) {
 											System.out.printf("Server error: %s\n", e.getMessage());
 											break;
@@ -330,15 +477,18 @@ public class FileThread extends Thread
 											System.out.println("Read error");
 
 										}
-										
+
 										tfis.close();
 										e.addObject(encryptAES(tbuf, sessionKey, IV));
+										e.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+										e.addObject(generateHMAC(e.getObjContents(), sessionKey));
 										output.writeObject(e);
-										
+										counterFS++;
+
 									}
 									else
 									{
-											
+
 										byte[] buf = new byte[4096];
 										if (e.getMessage().compareTo("DOWNLOADF")!=0) {
 											System.out.printf("Server error: %s\n", e.getMessage());
@@ -360,10 +510,35 @@ public class FileThread extends Thread
 										byte[] nAES = encryptAES(nSer, sessionKey, IV);
 										e.addObject(nAES);
 
+										e.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+										e.addObject(generateHMAC(e.getObjContents(), sessionKey));
 										output.writeObject(e);
+										counterFS++;
 
 									}
 									e = (Envelope)input.readObject();
+									checkCount = decryptAEScounter((byte[])e.getCounter(), sessionKey, IV);
+									macList = new ArrayList<Object>(e.getObjContents().subList(0, e.getObjContents().size()-1));
+									if(counterFC >= checkCount)
+									{
+										message = new Envelope("FAIL");
+										message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+										message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+										output.writeObject(message);
+										counterFS++;
+									}
+									else if(e.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+									{
+										message = new Envelope("FAIL-BAD-HMAC");
+										message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+										message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+										output.writeObject(message);
+										counterFS++;
+									}
+									else
+									{
+										counterFC = checkCount;
+									}
 
 
 								}
@@ -374,9 +549,34 @@ public class FileThread extends Thread
 								{
 
 									e = new Envelope("EOF");
+									e.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+									e.addObject(generateHMAC(e.getObjContents(), sessionKey));
 									output.writeObject(e);
-
+									counterFS++;
 									e = (Envelope)input.readObject();
+									checkCount = decryptAEScounter((byte[])e.getCounter(), sessionKey, IV);
+									macList = new ArrayList<Object>(e.getObjContents().subList(0, e.getObjContents().size()-1));
+									if(counterFC >= checkCount)
+									{
+										message = new Envelope("FAIL");
+										message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+										message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+										output.writeObject(message);
+										counterFS++;
+									}
+									else if(e.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+									{
+										message = new Envelope("FAIL-BAD-HMAC");
+										message.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+										message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+										output.writeObject(message);
+										counterFS++;
+									}
+									else
+									{
+										counterFC = checkCount;
+									}
+
 									if(e.getMessage().compareTo("OK")==0) {
 										System.out.printf("File data upload successful\n");
 									}
@@ -448,8 +648,10 @@ public class FileThread extends Thread
 							e = new Envelope(e1.getMessage());
 						}
 					}
+					e.addObject(encryptAEScounter(counterFS, sessionKey, IV));
+					e.addObject(generateHMAC(e.getObjContents(), sessionKey));
 					output.writeObject(e);
-
+					counterFS++;
 				}
 				else if(e.getMessage().equals("DISCONNECT"))
 				{
@@ -544,6 +746,61 @@ public class FileThread extends Thread
 			} else {
 				return false;
 			}
+		}
+	}
+
+	public byte[] encryptCounterRSA(int counter, Key pubRSAkey) throws Exception
+	{
+		BigInteger temp = new BigInteger(Integer.toString(counter));
+		Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+		rsaCipher.init(Cipher.ENCRYPT_MODE, pubRSAkey);
+		byte[] byteCipherText = rsaCipher.doFinal(temp.toByteArray());
+		return byteCipherText;
+	}
+
+	public int decryptCounterRSA(byte[] cipherText, Key privRSAkey) throws Exception
+	{
+		Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+		rsaCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
+		byte[] byteText = rsaCipher.doFinal(cipherText);
+		BigInteger counter = new BigInteger(1, byteText);
+		return counter.intValue();
+	}
+
+	public static byte[] encryptAEScounter(int counter, Key AESkey, IvParameterSpec IV) throws Exception
+	{
+		BigInteger temp = new BigInteger(Integer.toString(counter));
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		aesCipher.init(Cipher.ENCRYPT_MODE, AESkey, IV);
+		byte[] byteCipherText = aesCipher.doFinal(temp.toByteArray());
+		return byteCipherText;
+	}
+
+	public static int decryptAEScounter(byte[] cipherText, Key AESkey, IvParameterSpec IV) throws Exception
+	{
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		aesCipher.init(Cipher.DECRYPT_MODE, AESkey, IV);
+		byte[] byteText = aesCipher.doFinal(cipherText);
+		BigInteger counter = new BigInteger(1, byteText);
+		return counter.intValue();
+	}
+
+	public static String generateHMAC(ArrayList<Object> message, Key macKey)
+	{
+		try {
+			Serializer ser = new Serializer();
+			byte[] messBytes = ser.serialize(message);
+			byte[] keyBytes = macKey.getEncoded();
+			SecretKeySpec signingKey = new SecretKeySpec(keyBytes, "HmacSHA256");
+
+			Mac mac = Mac.getInstance("HmacSHA256");
+			mac.init(signingKey);
+			byte[] rawMac = mac.doFinal(messBytes);
+			// byte[] hexForm = new Hex().encode(rawMac);
+			return new String(rawMac, "UTF-8");
+		}
+		catch(Exception e) {
+			throw new RuntimeException(e);
 		}
 	}
 }
