@@ -3,6 +3,7 @@ import java.util.*;
 import java.io.*;
 import javax.crypto.KeyGenerator;
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.*;
@@ -19,6 +20,10 @@ public class GroupClient extends Client implements GroupClientInterface
 	private IvParameterSpec IV = null;
 	private byte[] aesTok = null;
 	private PublicKey sPubKey = null;
+	int checkCount = -1;
+	int counterGS = -1;
+	int counterGC = -1;
+	ArrayList<Object> macList = null;
 
 	 public UserToken getToken(String username, KeyPair userKey, String fServer)
 	 {
@@ -73,14 +78,30 @@ public class GroupClient extends Client implements GroupClientInterface
         System.exit(-1);
       }
 
+			counterGC = 0;
+
 			//Tell the server to return a token.
 			message = new Envelope("GET");
 			message.addObject(username); //Add user name string
 			message.addObject(fServer); // Add File Server address string so it can be added to the token
+			message.addObject(encryptCounterRSA(counterGC, sPubKey));
 			output.writeObject(message);
+			counterGC++;
 
 			//Get the response from the server
 			response = (Envelope)input.readObject();
+			checkCount = decryptCounterRSA((byte[])response.getObjContents().get(1), cPrivKey);
+			if(counterGS >= checkCount)
+			{
+				message = new Envelope("FAIL");
+				message.addObject(encryptCounterRSA(counterGC, sPubKey));
+				output.writeObject(message);
+				counterGC++;
+			}
+			else
+			{
+				counterGS = checkCount;
+			}
 
 			// Turley doing things
 			ArrayList<Object> temp = null;
@@ -101,7 +122,9 @@ public class GroupClient extends Client implements GroupClientInterface
 				message = new Envelope("OK");
 				message.addObject(C1); // 0
 				message.addObject(ciph2); // 1
+				message.addObject(encryptCounterRSA(counterGC, sPubKey)); // 2
 				output.writeObject(message); // Write it out
+				counterGC++;
 				// Wait for respnce
 				response = (Envelope)input.readObject();
 				if(response.getMessage().equals("OK"))
@@ -116,6 +139,19 @@ public class GroupClient extends Client implements GroupClientInterface
 						IV = new IvParameterSpec(ivBytes);
 						// And we have a session key!
 						sessionKey = decryptAESKeyRSA(rsaSessionKey, cPrivKey);
+						//Check the counter that was encrypted with the session key
+						checkCount = decryptAEScounter((byte[])response.getObjContents().get(4), sessionKey, IV);
+						if(counterGS >= checkCount)
+						{
+							response = new Envelope("FAIL");
+							response.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+							output.writeObject(response);
+							counterGC++;
+						}
+						else
+						{
+							counterGS = checkCount;
+						}
 						// Now retrive the token
 						byte[] serTok = decryptAES(aesTok, sessionKey, IV);
 						// And Deserilize it
@@ -133,7 +169,6 @@ public class GroupClient extends Client implements GroupClientInterface
 			e.printStackTrace(System.err);
 			return null;
 		}
-
 	 }
 
 	 public boolean createUser(String username, UserToken token)
@@ -147,9 +182,33 @@ public class GroupClient extends Client implements GroupClientInterface
 				message = new Envelope("CUSER");
 				message.addObject(encryptAES(username.getBytes(), sessionKey, IV)); //Add user name string
 				message.addObject(aesTok); //Add the requester's token
+				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
+				counterGC++;
 
 				response = (Envelope)input.readObject();
+				checkCount = decryptAEScounter((byte[])response.getCounter(), sessionKey, IV);
+				macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
+				if(counterGS >= checkCount)
+				{
+					message = new Envelope("FAIL");
+					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+					output.writeObject(message);
+					counterGC++;
+				}
+				else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+				{
+					message = new Envelope("FAIL-BAD-HMAC");
+					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+					output.writeObject(message);
+					counterGC++;				}
+				else
+				{
+					counterGS = checkCount;
+				}
 
 				//If server indicates success, return true
 				if(response.getMessage().equals("OK"))
@@ -177,9 +236,33 @@ public class GroupClient extends Client implements GroupClientInterface
 				message = new Envelope("DUSER");
 				message.addObject(encryptAES(username.getBytes(), sessionKey, IV)); //Add user name
 				message.addObject(aesTok);  //Add requester's token
+				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
+				counterGC++;
 
 				response = (Envelope)input.readObject();
+				checkCount = decryptAEScounter((byte[])response.getCounter(), sessionKey, IV);
+				macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
+				if(counterGS >= checkCount)
+				{
+					message = new Envelope("FAIL");
+					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+					output.writeObject(message);
+					counterGC++;
+				}
+				else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+				{
+					message = new Envelope("FAIL-BAD-HMAC");
+					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+					output.writeObject(message);
+					counterGC++;				}
+				else
+				{
+					counterGS = checkCount;
+				}
 
 				//If server indicates success, return true
 				if(response.getMessage().equals("OK"))
@@ -210,9 +293,34 @@ public class GroupClient extends Client implements GroupClientInterface
 				message = new Envelope("CGROUP");
 				message.addObject(encryptAES(groupname.getBytes(), sessionKey, IV)); //Add the group name string
 				message.addObject(aesTok); //Add the requester's token
+				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
+				counterGC++;
 
 				response = (Envelope)input.readObject();
+				checkCount = decryptAEScounter((byte[])response.getCounter(), sessionKey, IV);
+				macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
+				if(counterGS >= checkCount)
+				{
+					message = new Envelope("FAIL");
+					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+					output.writeObject(message);
+					counterGC++;
+				}
+				else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+				{
+					message = new Envelope("FAIL-BAD-HMAC");
+					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+					output.writeObject(message);
+					counterGC++;
+				}
+				else
+				{
+					counterGS = checkCount;
+				}
 
 				//If server indicates success, return true
 				if(response.getMessage().equals("OK"))
@@ -239,9 +347,34 @@ public class GroupClient extends Client implements GroupClientInterface
 				message = new Envelope("DGROUP");
 				message.addObject(encryptAES(groupname.getBytes(), sessionKey, IV)); //Add the group name string
 				message.addObject(aesTok); //Add the requester's token
+				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
+				counterGC++;
 
 				response = (Envelope)input.readObject();
+				checkCount = decryptAEScounter((byte[])response.getCounter(), sessionKey, IV);
+				macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
+				if(counterGS >= checkCount)
+				{
+					message = new Envelope("FAIL");
+					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+					output.writeObject(message);
+					counterGC++;
+				}
+				else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+				{
+					message = new Envelope("FAIL-BAD-HMAC");
+					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+					output.writeObject(message);
+					counterGC++;				}
+				else
+				{
+					counterGS = checkCount;
+				}
+
 				//If server indicates success, return true
 				if(response.getMessage().equals("OK"))
 				{
@@ -269,9 +402,34 @@ public class GroupClient extends Client implements GroupClientInterface
 			 message = new Envelope("LMEMBERS");
 			 message.addObject(encryptAES(group.getBytes(), sessionKey, IV)); //Add the group name string
 			 message.addObject(aesTok); //Add the requester's token
+			 message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+			 message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 			 output.writeObject(message);
+			 counterGC++;
 
 			 response = (Envelope)input.readObject();
+			 checkCount = decryptAEScounter((byte[])response.getCounter(), sessionKey, IV);
+			 macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
+			 if(counterGS >= checkCount)
+			 {
+				 message = new Envelope("FAIL");
+				 message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+				 message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+				 output.writeObject(message);
+				 counterGC++;
+			 }
+			 else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+			 {
+				 message = new Envelope("FAIL-BAD-HMAC");
+				 message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+				 message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+				 output.writeObject(message);
+				 counterGC++;
+				}
+			 else
+			 {
+				 counterGS = checkCount;
+			 }
 
 			 //If server indicates success, return the member list
 			 if(response.getMessage().equals("OK"))
@@ -304,9 +462,35 @@ public class GroupClient extends Client implements GroupClientInterface
 				message.addObject(encryptAES(username.getBytes(), sessionKey, IV)); //Add user name string
 				message.addObject(encryptAES(groupname.getBytes(), sessionKey, IV)); //Add group name string
 				message.addObject(aesTok); //Add requester's token
+				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
+				counterGC++;
 
 				response = (Envelope)input.readObject();
+				checkCount = decryptAEScounter((byte[])response.getCounter(), sessionKey, IV);
+				macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
+				if(counterGS >= checkCount)
+				{
+					message = new Envelope("FAIL");
+					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+					output.writeObject(message);
+					counterGC++;
+				}
+				else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+				{
+					message = new Envelope("FAIL-BAD-HMAC");
+					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+					output.writeObject(message);
+					counterGC++;
+				}
+				else
+				{
+					counterGS = checkCount;
+				}
+
 				//If server indicates success, return true
 				if(response.getMessage().equals("OK"))
 				{
@@ -333,9 +517,35 @@ public class GroupClient extends Client implements GroupClientInterface
 				message.addObject(encryptAES(username.getBytes(), sessionKey, IV)); //Add user name string
 				message.addObject(encryptAES(groupname.getBytes(), sessionKey, IV)); //Add group name string
 				message.addObject(aesTok); //Add requester's token
+				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
+				counterGC++;
 
 				response = (Envelope)input.readObject();
+				checkCount = decryptAEScounter((byte[])response.getCounter(), sessionKey, IV);
+				macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
+				if(counterGS >= checkCount)
+				{
+					message = new Envelope("FAIL");
+					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+					output.writeObject(message);
+					counterGC++;
+				}
+				else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+				{
+					message = new Envelope("FAIL-BAD-HMAC");
+					message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+					output.writeObject(message);
+					counterGC++;
+				}
+				else
+				{
+					counterGS = checkCount;
+				}
+
 				//If server indicates success, return true
 				if(response.getMessage().equals("OK"))
 				{
@@ -352,9 +562,9 @@ public class GroupClient extends Client implements GroupClientInterface
 			}
 	 }
 
-	 
+
 	 //group key functions (mjm282)
-	 
+
 	 //needs to be able to get the group key from the server
 	 //sends the group name, the key number the file is encrypted with (from the beginning of the file), and the user's token
 	 public Key getGroupKey(String groupName, int keyNum, UserToken token)
@@ -363,30 +573,54 @@ public class GroupClient extends Client implements GroupClientInterface
 		try
 		{
 			Envelope message = null, response = null;
-			 
+
 			//convert keyNum to bytes
 			byte[] intBytes = new byte[4];
 			intBytes[0] = (byte) (keyNum >> 24);
 			intBytes[1] = (byte) (keyNum >> 16);
 			intBytes[2] = (byte) (keyNum >> 8);
 			intBytes[3] = (byte) (keyNum);
-			 
+
 			message = new Envelope("GETK");
 			message.addObject(encryptAES(groupName.getBytes(), sessionKey, IV)); //Add group name
 			message.addObject(encryptAES(intBytes, sessionKey, IV)); //Add keyNum
 			message.addObject(aesTok);
-			
+			message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+			message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 			output.writeObject(message);
-			
+			counterGC++;
+
 			response = (Envelope) input.readObject();
-			
+			checkCount = decryptAEScounter((byte[])response.getCounter(), sessionKey, IV);
+			macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
+			if(counterGS >= checkCount)
+			{
+				message = new Envelope("FAIL");
+				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+				output.writeObject(message);
+				counterGC++;
+			}
+			else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+			{
+				message = new Envelope("FAIL-BAD-HMAC");
+				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+				output.writeObject(message);
+				counterGC++;
+			}
+			else
+			{
+				counterGS = checkCount;
+			}
+
 			if(response.getMessage().equals("OK"))
 			{
 				Key retKey = new SecretKeySpec(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV), "AES");
 				//Key retKey = new SecretKeySpec((byte[])ser.deserialize(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV)), "AES");
 				return retKey;
 			}
-			
+
 			return null;
 		}
 		catch(Exception e)
@@ -396,7 +630,7 @@ public class GroupClient extends Client implements GroupClientInterface
 			return null;
 		}
 	 }
-	 
+
 	 //if the client is uploading it will use the most recent key, so no keyNum will be passed in
 	 public ArrayList<Object> getGroupKey(String groupName, UserToken token)
 	 {
@@ -404,15 +638,39 @@ public class GroupClient extends Client implements GroupClientInterface
 		try
 		{
 			Envelope message = null, response = null;
-			 
+
 			message = new Envelope("GETK");
 			message.addObject(encryptAES(groupName.getBytes(), sessionKey, IV)); //Add user name string
 			message.addObject(aesTok);
-			
+			message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+			message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 			output.writeObject(message);
-			
+			counterGC++;
+
 			response = (Envelope) input.readObject();
-			
+			checkCount = decryptAEScounter((byte[])response.getCounter(), sessionKey, IV);
+			macList = new ArrayList<Object>(response.getObjContents().subList(0, response.getObjContents().size()-1));
+			if(counterGS >= checkCount)
+			{
+				message = new Envelope("FAIL");
+				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+				output.writeObject(message);
+				counterGC++;
+			}
+			else if(response.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+			{
+				message = new Envelope("FAIL-BAD-HMAC");
+				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
+				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
+				output.writeObject(message);
+				counterGC++;
+			}
+			else
+			{
+				counterGS = checkCount;
+			}
+
 			if(response.getMessage().equals("OK"))
 			{
 				ArrayList<Object> ret = new ArrayList<Object>();
@@ -423,7 +681,7 @@ public class GroupClient extends Client implements GroupClientInterface
 //				Key retKey = new SecretKeySpec((byte[])ser.deserialize(decryptAES((byte[])response.getObjContents().get(0), sessionKey, IV)), "AES");
 //				return retKey;
 			}
-			
+
 			return null;
 		}
 		catch(Exception e)
@@ -433,7 +691,7 @@ public class GroupClient extends Client implements GroupClientInterface
 			return null;
 		}
 	 }
-	 
+
 	 //does everything needed to get a group key, parse out key number and IV, and decrypt a file
 	 //doing this in GroupClient because it's slightly more convenient
 	 public boolean downloadDec(String dFile, UserToken token)
@@ -446,19 +704,19 @@ public class GroupClient extends Client implements GroupClientInterface
 		byte[] ivBytes = new byte[16];
 		byte[] numBytes = new byte[4];
 		byte[] groupBytes = new byte[100];
-		
+
 		Serializer ser = new Serializer();
-		
+
 		try
 		{
-		
+
 		String encFile = dFile + ".enc";
 		File inFile = new File(encFile);
 		File outFile = new File(dFile);
 		outFile.createNewFile();
-		
-		
-		
+
+
+
 		//gets metadata from.meta file and parses it out into all of the needed keys/IV/etc.
 		File tfile = new File(dFile + ".meta");
 		FileInputStream tfis = new FileInputStream(tfile);
@@ -483,16 +741,16 @@ public class GroupClient extends Client implements GroupClientInterface
 				//System.out.println(groupBytes[i-20]);
 			}
 		}
-		
-		
+
+
 		keyNum = ((numBytes[0] & 0xFF) << 24) | ((numBytes[1] & 0xFF) << 16) | ((numBytes[2] & 0xFF) << 8) | (numBytes[3] & 0xFF);
-		
+
 		group = new String(groupBytes).trim();
-		
+
 		//create IV from input and get group AES key
-		fileIV = new IvParameterSpec(ivBytes);	
+		fileIV = new IvParameterSpec(ivBytes);
 		groupKey = getGroupKey(group, keyNum, token);
-		
+
 		//creates a file input stream and reads the first chunk from the file
 		//also creates a CipherOutputStream to decrypt and store the downloaded file
 		Cipher decCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
@@ -507,23 +765,23 @@ public class GroupClient extends Client implements GroupClientInterface
 			int in = fis.read(buf);
 			cos.write(buf, 0, in);
 			//fos.write((byte[]) decryptAES(buf, groupKey, fileIV), 0, in);
-				
+
 		}while(fis.available() > 0);
-		
-		
+
+
 		fos.close();
 		fis.close();
 		inFile.delete();
-		
+
 		}catch(Exception e){
 			e.printStackTrace();
 			return false;
 		}
-		
+
 		return true;
 	 }
-	 
-	 
+
+
 	 // RSA Functions (Turley)
 	 public byte[] encryptChalRSA(BigInteger challenge, Key pubRSAkey) throws Exception
 	{
@@ -568,13 +826,68 @@ public class GroupClient extends Client implements GroupClientInterface
 		return byteCipherText;
 	}
 
+	public static String generateHMAC(ArrayList<Object> message, Key macKey)
+	{
+		try {
+			Serializer ser = new Serializer();
+			byte[] messBytes = ser.serialize(message);
+			byte[] keyBytes = macKey.getEncoded();
+			SecretKeySpec signingKey = new SecretKeySpec(keyBytes, "HmacSHA256");
+
+			Mac mac = Mac.getInstance("HmacSHA256");
+			mac.init(signingKey);
+			byte[] rawMac = mac.doFinal(messBytes);
+			// byte[] hexForm = new Hex().encode(rawMac);
+			return new String(rawMac, "UTF-8");
+		}
+		catch(Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	public byte[] encryptCounterRSA(int counter, Key pubRSAkey) throws Exception
+	{
+		BigInteger temp = new BigInteger(Integer.toString(counter));
+		Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+		rsaCipher.init(Cipher.ENCRYPT_MODE, pubRSAkey);
+		byte[] byteCipherText = rsaCipher.doFinal(temp.toByteArray());
+		return byteCipherText;
+	}
+
+	public int decryptCounterRSA(byte[] cipherText, Key privRSAkey) throws Exception
+	{
+		Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+		rsaCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
+		byte[] byteText = rsaCipher.doFinal(cipherText);
+		BigInteger counter = new BigInteger(1, byteText);
+		return counter.intValue();
+	}
+
+	public static byte[] encryptAEScounter(int counter, Key AESkey, IvParameterSpec IV) throws Exception
+	{
+		BigInteger temp = new BigInteger(Integer.toString(counter));
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		aesCipher.init(Cipher.ENCRYPT_MODE, AESkey, IV);
+		byte[] byteCipherText = aesCipher.doFinal(temp.toByteArray());
+		return byteCipherText;
+	}
+
+	public static int decryptAEScounter(byte[] cipherText, Key AESkey, IvParameterSpec IV) throws Exception
+	{
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		aesCipher.init(Cipher.DECRYPT_MODE, AESkey, IV);
+		byte[] byteText = aesCipher.doFinal(cipherText);
+		BigInteger counter = new BigInteger(1, byteText);
+		return counter.intValue();
+	}
+
 	// public static byte[] encryptECB(byte[] plainText, Key AESkey) throws Exception
 	// {
 		// Cipher aesCipher = Cipher.getInstance("AES", "BC");
-		
+
 	// }
-	
-	
+
+
 	 //TODO implement encryption and decryption for message passing
 	 //Would be possibly easier to make 4 methods, two for enc/dec in AES and two for enc/dec in RSA
 

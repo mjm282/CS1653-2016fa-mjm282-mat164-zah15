@@ -8,7 +8,9 @@ import java.util.*;
 import org.bouncycastle.*;
 import javax.crypto.KeyGenerator;
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.security.*;
 import java.math.BigInteger;
 
@@ -32,6 +34,10 @@ public class GroupThread extends Thread
 
 		IvParameterSpec IV = null;
 
+		int checkCount = -1;
+		int counterGC = -1;
+		int counterGS = -1;
+
 		try
 		{
 			//Announces connection and opens object streams
@@ -39,12 +45,41 @@ public class GroupThread extends Thread
 			final ObjectInputStream input = new ObjectInputStream(socket.getInputStream());
 			final ObjectOutputStream output = new ObjectOutputStream(socket.getOutputStream());
 			Serializer mySerializer = new Serializer();
+			ArrayList<Object> macList = null;
+			counterGS = 0;
 
 			do
 			{
 				Envelope message = (Envelope)input.readObject();
+				Envelope response = null;
+				if(message.getMessage().compareTo("DISCONNECT") != 0 && sessionKey != null)
+				{
+					checkCount = decryptAEScounter(message.getCounter(), sessionKey, IV);
+					macList = new ArrayList<Object>(message.getObjContents().subList(0, message.getObjContents().size()-1));
+					if(counterGC >= checkCount)
+					{
+						response = new Envelope("FAIL");
+						response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
+						response.addObject(generateHMAC(response.getObjContents(), sessionKey));
+						output.writeObject(response);
+						counterGS++;
+					}
+					else if(message.getHMAC().compareTo(generateHMAC(macList, sessionKey))!=0)
+					{
+						response = new Envelope("FAIL-BAD-HMAC");
+						response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
+						response.addObject(generateHMAC(response.getObjContents(), sessionKey));
+						output.writeObject(response);
+						counterGS++;
+					}
+					else
+					{
+						counterGC = checkCount;
+					}
+				}
+
 				System.out.println("Request received: " + message.getMessage());
-				Envelope response;
+
 
 				if(message.getMessage().equals("GET"))//Client wants a token
 				{
@@ -54,7 +89,9 @@ public class GroupThread extends Thread
 					{
 						response = new Envelope("FAIL");
 						response.addObject(null);
+						response.addObject(counterGS);
 						output.writeObject(response);
+						counterGS++;
 					}
 					else
 					{
@@ -76,9 +113,23 @@ public class GroupThread extends Thread
 						if (userKey == null)
 						{
 							response = new Envelope("FAIL");
+							response.addObject(counterGS);
 							output.writeObject(response);
+							counterGS++;
 							System.out.println(username + "'s Key Does Not Exist");
 							return;
+						}
+						checkCount = decryptCounterRSA((byte[])message.getObjContents().get(2), my_gs.getPrivateKey());
+						if(counterGC >= checkCount)
+						{
+							response = new Envelope("FAIL");
+							response.addObject(encryptCounterRSA(counterGS, userKey));
+							output.writeObject(response);
+							counterGS++;
+						}
+						else
+						{
+							counterGC = checkCount;
 						}
 						// Create BigInteger challenge
 						// We need it to be random
@@ -90,9 +141,23 @@ public class GroupThread extends Thread
 						// And send that Encrypted ish
 						response = new Envelope("OK");
 						response.addObject(cipherBI); // 0
+						response.addObject(encryptCounterRSA(counterGS, userKey));
 						output.writeObject(response);
+						counterGS++;
 						// Wait for message
 						message = (Envelope)input.readObject();
+						checkCount = decryptCounterRSA((byte[])message.getObjContents().get(2), my_gs.getPrivateKey());
+						if(counterGC >= checkCount)
+						{
+							response = new Envelope("FAIL");
+							response.addObject(encryptCounterRSA(counterGS, userKey));
+							output.writeObject(response);
+							counterGS++;
+						}
+						else
+						{
+							counterGC = checkCount;
+						}
 						// Read in the responce ... I think :/
 						BigInteger c1 = (BigInteger)message.getObjContents().get(0);
 						if (c1.equals(chal))
@@ -148,20 +213,29 @@ public class GroupThread extends Thread
 								// And the IV would help in decryption
 								response.addObject(ivBytes); //3
 								System.out.println("Added ivBytes");
+								// Apend counter (encrypted with sessionKey) to end of response
+								response.addObject(encryptAEScounter(counterGS, sessionKey, IV)); //4
+								System.out.println("Added counter value");
+								// Send back response
 								output.writeObject(response);
+								counterGS++;
 								System.out.println("Sent Back Response");
 							}
 							else
 							{
 								response = new Envelope("FAIL");
+								response.addObject(encryptCounterRSA(counterGS, userKey));
 								output.writeObject(response);
+								counterGS++;
 							}
 						}
 						else
 						{
 							// The challenge does not match ... sad day
 							response = new Envelope("FAIL");
+							response.addObject(encryptCounterRSA(counterGS, userKey));
 							output.writeObject(response);
+							counterGS++;
 						}
 						// End of Turley doing things
 					}
@@ -199,7 +273,10 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
+					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
+					counterGS++;
 				}
 				else if(message.getMessage().equals("DUSER")) //Client wants to delete a user
 				{
@@ -230,7 +307,10 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
+					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
+					counterGS++;
 				}
 				else if(message.getMessage().equals("CGROUP")) //Client wants to create a group
 				{
@@ -261,8 +341,10 @@ public class GroupThread extends Thread
 							}
 						}
 					}
-
+					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
+					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
+					counterGS++;
 				}
 				else if(message.getMessage().equals("DGROUP")) //Client wants to delete a group
 				{
@@ -293,7 +375,10 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
+					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
+					counterGS++;
 				}
 				else if(message.getMessage().equals("LMEMBERS")) //Client wants a list of members in a group
 				{
@@ -326,7 +411,10 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
+					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
+					counterGS++;
 				}
 				else if(message.getMessage().equals("AUSERTOGROUP")) //Client wants to add user to a group
 				{
@@ -363,7 +451,10 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
+					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
+					counterGS++;
 				}
 				else if(message.getMessage().equals("RUSERFROMGROUP")) //Client wants to remove user from a group
 				{
@@ -400,7 +491,10 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
+					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
+					counterGS++;
 				}
 				else if(message.getMessage().equals("DISCONNECT")) //Client wants to disconnect
 				{
@@ -427,7 +521,7 @@ public class GroupThread extends Thread
 									byte[] numBytes = decryptAES((byte[]) message.getObjContents().get(1), sessionKey, IV);
 									int keyNum = ((numBytes[0] & 0xFF) << 24) | ((numBytes[1] & 0xFF) << 16) | ((numBytes[2] & 0xFF) << 8) | (numBytes[3] & 0xFF);
 									UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(2), sessionKey, IV));
-									
+
 									if(yourToken.verifySignature(my_gs.getPublicKey()))
 									{
 										System.out.println("Token Verified");
@@ -445,14 +539,14 @@ public class GroupThread extends Thread
 					else if(message.getObjContents().size() == 2)
 					{
 						response = new Envelope("FAIL");
-						
+
 						if(message.getObjContents().get(0) != null)
 						{
 							if(message.getObjContents().get(1) != null)
 							{
-								String groupName = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));	
-								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));	
-								
+								String groupName = new String(decryptAES((byte[])message.getObjContents().get(0), sessionKey, IV));
+								UserToken yourToken = (UserToken)mySerializer.deserialize(decryptAES((byte[])message.getObjContents().get(1), sessionKey, IV));
+
 								if(yourToken.verifySignature(my_gs.getPublicKey()))
 								{
 									System.out.println("Token Verified");
@@ -471,12 +565,18 @@ public class GroupThread extends Thread
 					{
 						response = new Envelope("FAIL");
 					}
+					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
+					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
+					counterGS++;
 				}
 				else
 				{
 					response = new Envelope("FAIL"); //Server does not understand client request
+					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
+					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
+					counterGS++;
 				}
 			}while(proceed);
 		}
@@ -891,7 +991,7 @@ public class GroupThread extends Thread
 			return null; //user doesn't exist
 		}
 	}
-	
+
 	private Key getGroupKey (String groupName, UserToken yourToken)
 	{
 		String requester = yourToken.getSubject();
@@ -923,7 +1023,7 @@ public class GroupThread extends Thread
 			return null; //user doesn't exist
 		}
 	}
-	
+
 	// RSA Functions (Turley)
 	public byte[] encryptChalRSA(BigInteger challenge, Key pubRSAkey) throws Exception
   {
@@ -932,7 +1032,7 @@ public class GroupThread extends Thread
   	byte[] byteCipherText = rsaCipher.doFinal(challenge.toByteArray());
   	return byteCipherText;
   }
-  
+
   public static byte[] encryptGroupKey(Key gKey, Key sKey, IvParameterSpec IV) throws Exception
   {
 	  Cipher sCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
@@ -982,4 +1082,60 @@ public class GroupThread extends Thread
     byte[] byteText = aesCipher.doFinal(cipherText);
     return byteText;
   }
+
+	public byte[] encryptCounterRSA(int counter, Key pubRSAkey) throws Exception
+	{
+		BigInteger temp = new BigInteger(Integer.toString(counter));
+		Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+		rsaCipher.init(Cipher.ENCRYPT_MODE, pubRSAkey);
+		byte[] byteCipherText = rsaCipher.doFinal(temp.toByteArray());
+		return byteCipherText;
+	}
+
+	public int decryptCounterRSA(byte[] cipherText, Key privRSAkey) throws Exception
+	{
+		Cipher rsaCipher = Cipher.getInstance("RSA", "BC");
+		rsaCipher.init(Cipher.DECRYPT_MODE, privRSAkey);
+		byte[] byteText = rsaCipher.doFinal(cipherText);
+		BigInteger counter = new BigInteger(1, byteText);
+		return counter.intValue();
+	}
+
+	public static byte[] encryptAEScounter(int counter, Key AESkey, IvParameterSpec IV) throws Exception
+	{
+		BigInteger temp = new BigInteger(Integer.toString(counter));
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		aesCipher.init(Cipher.ENCRYPT_MODE, AESkey, IV);
+		byte[] byteCipherText = aesCipher.doFinal(temp.toByteArray());
+		return byteCipherText;
+	}
+
+	public static int decryptAEScounter(byte[] cipherText, Key AESkey, IvParameterSpec IV) throws Exception
+	{
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+		aesCipher.init(Cipher.DECRYPT_MODE, AESkey, IV);
+		byte[] byteText = aesCipher.doFinal(cipherText);
+		BigInteger counter = new BigInteger(1, byteText);
+		return counter.intValue();
+	}
+
+	public static String generateHMAC(ArrayList<Object> message, Key macKey)
+	{
+		try {
+			Serializer ser = new Serializer();
+			byte[] messBytes = ser.serialize(message);
+			byte[] keyBytes = macKey.getEncoded();
+			SecretKeySpec signingKey = new SecretKeySpec(keyBytes, "HmacSHA256");
+
+			Mac mac = Mac.getInstance("HmacSHA256");
+			mac.init(signingKey);
+			byte[] rawMac = mac.doFinal(messBytes);
+			// byte[] hexForm = new Hex().encode(rawMac);
+			return new String(rawMac, "UTF-8");
+		}
+		catch(Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 }
