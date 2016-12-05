@@ -932,7 +932,7 @@ public class GroupThread extends Thread
 						my_gs.groupList.removeGroupUser(groupName, username);
 						//remove from user's list of groups
 						my_gs.userList.removeGroup(username, groupName);
-
+						my_gs.groupList.update(groupName);
 						return true;
 					}
 					else

@@ -129,6 +129,11 @@ public class GroupList implements java.io.Serializable
 		return gList.get(groupName).getNum();
 	}
 	
+	public synchronized void update(String groupName)
+	{
+		gList.get(groupName).updateKey();
+	}
+	
 	/* group datatype
 	 * contains the list of users that are in a specific group
 	 * also contains a list of the owners of that group
