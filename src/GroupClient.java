@@ -84,13 +84,15 @@ public class GroupClient extends Client implements GroupClientInterface
 			message = new Envelope("GET");
 			message.addObject(username); //Add user name string
 			message.addObject(fServer); // Add File Server address string so it can be added to the token
+			message.addObject(message.getMessage());
 			message.addObject(encryptCounterRSA(counterGC, sPubKey));
+			message.addObject("HMAC");
 			output.writeObject(message);
 			counterGC++;
 
 			//Get the response from the server
 			response = (Envelope)input.readObject();
-			checkCount = decryptCounterRSA((byte[])response.getObjContents().get(1), cPrivKey);
+			checkCount = decryptCounterRSA((byte[])response.getObjContents().get(2), cPrivKey);
 			if(counterGS >= checkCount)
 			{
 				System.out.println("Replay/Reorder detected: terminating connection");
@@ -120,7 +122,9 @@ public class GroupClient extends Client implements GroupClientInterface
 				message = new Envelope("OK");
 				message.addObject(C1); // 0
 				message.addObject(ciph2); // 1
-				message.addObject(encryptCounterRSA(counterGC, sPubKey)); // 2
+				message.addObject(message.getMessage()); // 2
+				message.addObject(encryptCounterRSA(counterGC, sPubKey)); // 4
+				message.addObject("HMAC"); // 5
 				output.writeObject(message); // Write it out
 				counterGC++;
 				// Wait for respnce
@@ -138,7 +142,7 @@ public class GroupClient extends Client implements GroupClientInterface
 						// And we have a session key!
 						sessionKey = decryptAESKeyRSA(rsaSessionKey, cPrivKey);
 						//Check the counter that was encrypted with the session key
-						checkCount = decryptAEScounter((byte[])response.getObjContents().get(4), sessionKey, IV);
+						checkCount = decryptAEScounter((byte[])response.getObjContents().get(5), sessionKey, IV);
 						if(counterGS >= checkCount)
 						{
 							System.out.println("Replay/Reorder detected: terminating connection");
@@ -178,6 +182,7 @@ public class GroupClient extends Client implements GroupClientInterface
 				message = new Envelope("CUSER");
 				message.addObject(encryptAES(username.getBytes(), sessionKey, IV)); //Add user name string
 				message.addObject(aesTok); //Add the requester's token
+				message.addObject(message.getMessage());
 				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
 				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
@@ -227,6 +232,7 @@ public class GroupClient extends Client implements GroupClientInterface
 				message = new Envelope("DUSER");
 				message.addObject(encryptAES(username.getBytes(), sessionKey, IV)); //Add user name
 				message.addObject(aesTok);  //Add requester's token
+				message.addObject(message.getMessage());
 				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
 				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
@@ -279,6 +285,7 @@ public class GroupClient extends Client implements GroupClientInterface
 				message = new Envelope("CGROUP");
 				message.addObject(encryptAES(groupname.getBytes(), sessionKey, IV)); //Add the group name string
 				message.addObject(aesTok); //Add the requester's token
+				message.addObject(message.getMessage());
 				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
 				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
@@ -327,6 +334,7 @@ public class GroupClient extends Client implements GroupClientInterface
 				message = new Envelope("DGROUP");
 				message.addObject(encryptAES(groupname.getBytes(), sessionKey, IV)); //Add the group name string
 				message.addObject(aesTok); //Add the requester's token
+				message.addObject(message.getMessage());
 				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
 				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
@@ -377,6 +385,7 @@ public class GroupClient extends Client implements GroupClientInterface
 			 message = new Envelope("LMEMBERS");
 			 message.addObject(encryptAES(group.getBytes(), sessionKey, IV)); //Add the group name string
 			 message.addObject(aesTok); //Add the requester's token
+			 message.addObject(message.getMessage());
 			 message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
 			 message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 			 output.writeObject(message);
@@ -431,6 +440,7 @@ public class GroupClient extends Client implements GroupClientInterface
 				message.addObject(encryptAES(username.getBytes(), sessionKey, IV)); //Add user name string
 				message.addObject(encryptAES(groupname.getBytes(), sessionKey, IV)); //Add group name string
 				message.addObject(aesTok); //Add requester's token
+				message.addObject(message.getMessage());
 				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
 				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
@@ -480,6 +490,7 @@ public class GroupClient extends Client implements GroupClientInterface
 				message.addObject(encryptAES(username.getBytes(), sessionKey, IV)); //Add user name string
 				message.addObject(encryptAES(groupname.getBytes(), sessionKey, IV)); //Add group name string
 				message.addObject(aesTok); //Add requester's token
+				message.addObject(message.getMessage());
 				message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
 				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
@@ -542,6 +553,7 @@ public class GroupClient extends Client implements GroupClientInterface
 			message.addObject(encryptAES(groupName.getBytes(), sessionKey, IV)); //Add group name
 			message.addObject(encryptAES(intBytes, sessionKey, IV)); //Add keyNum
 			message.addObject(aesTok);
+			message.addObject(message.getMessage());
 			message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
 			message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 			output.writeObject(message);
@@ -593,6 +605,7 @@ public class GroupClient extends Client implements GroupClientInterface
 			message = new Envelope("GETK");
 			message.addObject(encryptAES(groupName.getBytes(), sessionKey, IV)); //Add user name string
 			message.addObject(aesTok);
+			message.addObject(message.getMessage());
 			message.addObject(encryptAEScounter(counterGC, sessionKey, IV));
 			message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 			output.writeObject(message);
@@ -778,7 +791,7 @@ public class GroupClient extends Client implements GroupClientInterface
 			byte[] keyBytes = macKey.getEncoded();
 			SecretKeySpec signingKey = new SecretKeySpec(keyBytes, "HmacSHA256");
 
-			Mac mac = Mac.getInstance("HmacSHA256");
+			Mac mac = Mac.getInstance("HmacSHA256", "BC");
 			mac.init(signingKey);
 			byte[] rawMac = mac.doFinal(messBytes);
 			// byte[] hexForm = new Hex().encode(rawMac);

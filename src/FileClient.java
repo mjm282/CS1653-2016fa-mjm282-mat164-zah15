@@ -57,7 +57,7 @@ public class FileClient extends Client implements FileClientInterface {
 
 			//wait for the server to send their public key
 			response = (Envelope)input.readObject();
-			checkCount = (int)response.getObjContents().get(1);
+			checkCount = (int)response.getObjContents().get(2);
 			if(counterFS >= checkCount) //Check to make sure counter is greaterthan previous counter
 			{
 				System.out.println("Replay/Reorder detected: terminating connection");
@@ -92,13 +92,14 @@ public class FileClient extends Client implements FileClientInterface {
 				//Send encrypted challenge
 				message = new Envelope("OK");
 				message.addObject(ciphC1);
+				message.addObject(message.getMessage());
 				message.addObject(encryptCounterRSA(counterFC, sPubKey));
 				output.writeObject(message);
 				counterFC++;
 
 				//Receive decrypted challenge
 				response = (Envelope)input.readObject();
-				checkCount = (int)response.getObjContents().get(1);
+				checkCount = (int)response.getObjContents().get(2);
 				if(counterFS >= checkCount)
 				{
 					System.out.println("Replay/Reorder detected: terminating connection");
@@ -140,13 +141,15 @@ public class FileClient extends Client implements FileClientInterface {
 						message.addObject(aesTok);//1
 						message.addObject(ivBytes); //2
 						message.addObject(groupPubKey); //3, The public key to verifiy the token
-						message.addObject(encryptAEScounter(counterFC, sessionKey, IV)); //4
+						message.addObject(message.getMessage()); //4
+						message.addObject(encryptAEScounter(counterFC, sessionKey, IV)); //5
 						output.writeObject(message);
 						counterFC++;
 					}
 					else
 					{
 						response = new Envelope("FAIL");
+						response.addObject(response.getMessage());
 						response.addObject(encryptCounterRSA(counterFC, sPubKey));
 						output.writeObject(response);
 						counterFC++;
@@ -208,6 +211,7 @@ public class FileClient extends Client implements FileClientInterface {
 			}
 	    env.addObject(aesTok);
 	    try {
+			env.addObject(env.getMessage());
 			env.addObject(encryptAEScounter(counterFC, sessionKey, IV));
 			env.addObject(generateHMAC(env.getObjContents(), sessionKey));
 			output.writeObject(env);
@@ -268,6 +272,7 @@ public class FileClient extends Client implements FileClientInterface {
 								e.printStackTrace();
 							}
 					    env.addObject(aesTok);
+							env.addObject(env.getMessage());
 							env.addObject(encryptAEScounter(counterFC, sessionKey, IV));
 							env.addObject(generateHMAC(env.getObjContents(), sessionKey));
 					    output.writeObject(env);
@@ -316,6 +321,7 @@ public class FileClient extends Client implements FileClientInterface {
 								}
 								System.out.printf(".");
 								env = new Envelope("DOWNLOADF"); //Success
+								env.addObject(env.getMessage());
 								env.addObject(encryptAEScounter(counterFC, sessionKey, IV));
 								env.addObject(generateHMAC(env.getObjContents(), sessionKey));
 								output.writeObject(env);
@@ -348,6 +354,7 @@ public class FileClient extends Client implements FileClientInterface {
 					    	 fos.close();
 								System.out.printf("\nTransfer successful file %s\n", sourceFile);
 								env = new Envelope("OK"); //Success
+								env.addObject(env.getMessage());
 								env.addObject(encryptAEScounter(counterFC, sessionKey, IV));
 								env.addObject(generateHMAC(env.getObjContents(), sessionKey));
 								output.writeObject(env);
@@ -391,6 +398,7 @@ public class FileClient extends Client implements FileClientInterface {
 			 byte[] serTok = byteTok.serialize(token);
 			 aesTok = encryptAES(serTok, sessionKey, IV);
 			 message.addObject(aesTok); //Add requester's encrypted token
+			 message.addObject(message.getMessage());
 			 message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
 			 message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 			 output.writeObject(message);
@@ -452,6 +460,7 @@ public class FileClient extends Client implements FileClientInterface {
 			 message.addObject(encryptAES(destFile.getBytes(), sessionKey, IV));
 			 message.addObject(encryptAES(group.getBytes(), sessionKey, IV));
 			 message.addObject(aesTok); //Add requester's token
+			 message.addObject(message.getMessage());
 			 message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
 			 message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 			 output.writeObject(message);
@@ -615,7 +624,7 @@ public class FileClient extends Client implements FileClientInterface {
 						byte[] nAES = encryptAES(nSer, sessionKey, IV);
 						message.addObject(nAES);
 					}
-
+					message.addObject(message.getMessage());
 					message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
 					message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 					output.writeObject(message);
@@ -650,6 +659,7 @@ public class FileClient extends Client implements FileClientInterface {
 			 {
 
 				message = new Envelope("EOF");
+				message.addObject(message.getMessage());
 				message.addObject(encryptAEScounter(counterFC, sessionKey, IV));
 				message.addObject(generateHMAC(message.getObjContents(), sessionKey));
 				output.writeObject(message);
@@ -810,7 +820,7 @@ public class FileClient extends Client implements FileClientInterface {
 			byte[] keyBytes = macKey.getEncoded();
 			SecretKeySpec signingKey = new SecretKeySpec(keyBytes, "HmacSHA256");
 
-			Mac mac = Mac.getInstance("HmacSHA256");
+			Mac mac = Mac.getInstance("HmacSHA256", "BC");
 			mac.init(signingKey);
 			byte[] rawMac = mac.doFinal(messBytes);
 			// byte[] hexForm = new Hex().encode(rawMac);
