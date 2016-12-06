@@ -85,6 +85,7 @@ public class GroupThread extends Thread
 					{
 						response = new Envelope("FAIL");
 						response.addObject(null);
+						response.addObject(response.getMessage());
 						response.addObject(counterGS);
 						output.writeObject(response);
 						counterGS++;
@@ -109,13 +110,14 @@ public class GroupThread extends Thread
 						if (userKey == null)
 						{
 							response = new Envelope("FAIL");
+							response.addObject(response.getMessage());
 							response.addObject(counterGS);
 							output.writeObject(response);
 							counterGS++;
 							System.out.println(username + "'s Key Does Not Exist");
 							return;
 						}
-						checkCount = decryptCounterRSA((byte[])message.getObjContents().get(2), my_gs.getPrivateKey());
+						checkCount = decryptCounterRSA((byte[])message.getObjContents().get(3), my_gs.getPrivateKey());
 						if(counterGC >= checkCount)
 						{
 							System.out.println("Replay/Reorder detected: terminating connection");
@@ -136,12 +138,13 @@ public class GroupThread extends Thread
 						// And send that Encrypted ish
 						response = new Envelope("OK");
 						response.addObject(cipherBI); // 0
-						response.addObject(encryptCounterRSA(counterGS, userKey));
+						response.addObject(response.getMessage()); // 2
+						response.addObject(encryptCounterRSA(counterGS, userKey)); // 3
 						output.writeObject(response);
 						counterGS++;
 						// Wait for message
 						message = (Envelope)input.readObject();
-						checkCount = decryptCounterRSA((byte[])message.getObjContents().get(2), my_gs.getPrivateKey());
+						checkCount = decryptCounterRSA((byte[])message.getObjContents().get(3), my_gs.getPrivateKey());
 						if(counterGC >= checkCount)
 						{
 							System.out.println("Replay/Reorder detected: terminating connection");
@@ -207,8 +210,11 @@ public class GroupThread extends Thread
 								// And the IV would help in decryption
 								response.addObject(ivBytes); //3
 								System.out.println("Added ivBytes");
+								// Add the message header so modifications to it would be reflected in the HMAC
+								response.addObject(response.getMessage()); //4
+								System.out.println("Added message header");
 								// Apend counter (encrypted with sessionKey) to end of response
-								response.addObject(encryptAEScounter(counterGS, sessionKey, IV)); //4
+								response.addObject(encryptAEScounter(counterGS, sessionKey, IV)); //5
 								System.out.println("Added counter value");
 								// Send back response
 								output.writeObject(response);
@@ -218,6 +224,7 @@ public class GroupThread extends Thread
 							else
 							{
 								response = new Envelope("FAIL");
+								response.addObject(response.getMessage());
 								response.addObject(encryptCounterRSA(counterGS, userKey));
 								output.writeObject(response);
 								counterGS++;
@@ -227,6 +234,7 @@ public class GroupThread extends Thread
 						{
 							// The challenge does not match ... sad day
 							response = new Envelope("FAIL");
+							response.addObject(response.getMessage());
 							response.addObject(encryptCounterRSA(counterGS, userKey));
 							output.writeObject(response);
 							counterGS++;
@@ -267,6 +275,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(message.getMessage());
 					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
 					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
@@ -301,6 +310,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(response.getMessage());
 					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
 					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
@@ -335,6 +345,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(response.getMessage());
 					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
 					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
@@ -369,6 +380,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(response.getMessage());
 					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
 					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
@@ -405,6 +417,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(response.getMessage());
 					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
 					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
@@ -445,6 +458,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(response.getMessage());
 					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
 					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
@@ -485,6 +499,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
+					response.addObject(response.getMessage());
 					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
 					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
@@ -501,7 +516,7 @@ public class GroupThread extends Thread
 					{
 						response = new Envelope("FAIL");
 					}
-					else if(message.getObjContents().size() == 5)
+					else if(message.getObjContents().size() == 6)
 					{
 						response = new Envelope("FAIL");
 						if(message.getObjContents().get(0) != null)
@@ -530,7 +545,7 @@ public class GroupThread extends Thread
 							}
 						}
 					}
-					else if(message.getObjContents().size() == 4)
+					else if(message.getObjContents().size() == 5)
 					{
 						response = new Envelope("FAIL");
 
@@ -559,6 +574,7 @@ public class GroupThread extends Thread
 					{
 						response = new Envelope("FAIL");
 					}
+					response.addObject(response.getMessage());
 					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
 					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
@@ -567,6 +583,7 @@ public class GroupThread extends Thread
 				else
 				{
 					response = new Envelope("FAIL"); //Server does not understand client request
+					response.addObject(response.getMessage());
 					response.addObject(encryptAEScounter(counterGS, sessionKey, IV));
 					response.addObject(generateHMAC(response.getObjContents(), sessionKey));
 					output.writeObject(response);
@@ -1121,7 +1138,7 @@ public class GroupThread extends Thread
 			byte[] keyBytes = macKey.getEncoded();
 			SecretKeySpec signingKey = new SecretKeySpec(keyBytes, "HmacSHA256");
 
-			Mac mac = Mac.getInstance("HmacSHA256");
+			Mac mac = Mac.getInstance("HmacSHA256", "BC");
 			mac.init(signingKey);
 			byte[] rawMac = mac.doFinal(messBytes);
 			// byte[] hexForm = new Hex().encode(rawMac);
