@@ -29,6 +29,10 @@ public class GroupServer extends Server
 	public UserList userList;
 	public GroupList groupList;
 	private KeyPair servPair;
+	public Key gKey;
+	public IvParameterSpec IV;
+	public Key adminKey;
+	public byte[] ivBytes;
 
 	public GroupServer() {
 		super(SERVER_PORT, "ALPHA");
@@ -228,17 +232,17 @@ public class GroupServer extends Server
 				
 				Serializer glSer = new Serializer();
 				
-				Key adminKey = getAdminKey(password);	//gets the key to encrypt GroupList.bin's AES encryption key stored at the start of the file
+				adminKey = getAdminKey(password);	//gets the key to encrypt GroupList.bin's AES encryption key stored at the start of the file
 				//having an AES encrypted AES key allows for password changing
 				
 				//generates an IV for GroupList.bin, will be stored at the beginning of the file
 				SecureRandom ivRand = new SecureRandom();
-				byte[] ivBytes = new byte[16];
+				ivBytes = new byte[16];
 				ivRand.nextBytes(ivBytes);
-				IvParameterSpec IV = new IvParameterSpec(ivBytes);
+				IV = new IvParameterSpec(ivBytes);
 				
 				//generate the actual AES key to encrypt GroupList.bin
-				Key gKey = genKey();
+				gKey = genKey();
 				
 				Cipher outCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
 				outCipher.init(Cipher.ENCRYPT_MODE, gKey, IV);
@@ -251,29 +255,29 @@ public class GroupServer extends Server
 				Cipher gCipher = Cipher.getInstance("AES", "BC");
 				gCipher.init(Cipher.ENCRYPT_MODE, adminKey);
 				byte[] gKeyEnc = gCipher.doFinal(gKey.getEncoded());
-				for(int i = 0; i < gKeyEnc.length; i++)
-				{
-					System.out.print(gKeyEnc[i]);
-				}
-				System.out.println();
-				for(int i = 0; i < ivBytes.length; i++)
-				{
-					System.out.print(ivBytes[i]);
-				}
-				System.out.println();
 				
 				FileOutputStream mfos = new FileOutputStream("GroupList.meta");
 				
 				mfos.write(gKeyEnc);
 				mfos.write(ivBytes);
+				
 				byte[] GLBytes = glSer.serialize(this.groupList);
-				for(int i = 0; i < GLBytes.length; i++)
-				{
-					System.out.print(GLBytes[i]);
-				}
-				System.out.println();
-				System.out.println(GLBytes.length);
+				
 				gcos.write(GLBytes);
+				gcos.flush();
+				gcos.close();
+				gfos.close();
+				
+				//having issues with size of GLBytes being smaller than the size of the .bin file written out, causing some trash bytes to be read in through the CipherInputStream, going to store the size of GLBytes
+				byte[] amtWrit = new byte[4];
+				amtWrit[0] = (byte) (GLBytes.length >> 24);
+				amtWrit[1] = (byte) (GLBytes.length >> 16);
+				amtWrit[2] = (byte) (GLBytes.length >> 8);
+				amtWrit[3] = (byte) (GLBytes.length);
+				mfos.write(amtWrit);
+				mfos.flush();
+				mfos.close();
+				
 			}
 			catch(Exception ee)
 			{
@@ -299,65 +303,66 @@ public class GroupServer extends Server
 			{
 				System.out.println("Please enter password to decrypt and load GroupList.bin");
 				password = console.next();
-				Key aKey = getAdminKey(password);
+				adminKey = getAdminKey(password);
 				Serializer gSer = new Serializer();
 				byte[] gKeyBytes = new byte[32];
-				byte[] ivBytes = new byte[16];
+				ivBytes = new byte[16];
+				byte[] intBytes = new byte [4];
 				
 				FileInputStream mfis = new FileInputStream("GroupList.meta");
 				
 				mfis.read(gKeyBytes);
 				mfis.read(ivBytes);
-				
+				mfis.read(intBytes);
 				mfis.close();
 				
-				for(int i = 0; i < gKeyBytes.length; i++)
-				{
-					System.out.print(gKeyBytes[i]);
-				}
-				System.out.println();
-				for(int i = 0; i < ivBytes.length; i++)
-				{
-					System.out.print(ivBytes[i]);
-				}
-				System.out.println();
+				int writInt = ((intBytes[0] & 0xFF) << 24) | ((intBytes[1] & 0xFF) << 16) | ((intBytes[2] & 0xFF) << 8) | (intBytes[3] & 0xFF);
 				
 				//creates a cipher and decrypts the AES key using adminKey
 				Cipher keyCipher = Cipher.getInstance("AES", "BC");
-				keyCipher.init(Cipher.DECRYPT_MODE, aKey);
+				keyCipher.init(Cipher.DECRYPT_MODE, adminKey);
 				byte[] gKeyDec = keyCipher.doFinal(gKeyBytes);
-				Key gKey = new SecretKeySpec(gKeyDec, "AES");
+				gKey = new SecretKeySpec(gKeyDec, "AES");
 				
 				//recreates the IV from the .meta file bytes
-				IvParameterSpec gIV = new IvParameterSpec(ivBytes);
+				IV = new IvParameterSpec(ivBytes);
 				
-				System.out.println("1");
 				Cipher inCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
-				inCipher.init(Cipher.DECRYPT_MODE, gKey, gIV);
-				System.out.println("2");
+				inCipher.init(Cipher.DECRYPT_MODE, gKey, IV);
+
 				FileInputStream gfis = new FileInputStream(groupFile);
-				System.out.println("3");
 				CipherInputStream gcis = new CipherInputStream(gfis, inCipher);
-				System.out.println("4");
-				byte[] GLBuf;
+				
+				byte[] GLBuf = new byte[writInt];
+				System.out.println(GLBuf.length);
 				boolean firstPass = true;
-				do
+				
+				System.out.println("5");
+				byte[] buf = new byte[4096];
+				int in = 0;
+				int prevIn = 0;
+				while((in = gcis.read(buf)) > 0)
 				{
-					System.out.println("5");
-					byte[] buf = new byte[4096];
-					int in = gcis.read(buf);
-					System.out.println("6");
 					if(firstPass)
 					{
-						GLBuf = new byte[in];
 						for(int i = 0; i < in; i++)
 						{
 							GLBuf[i] = buf[i];
 						}
+						prevIn = in;
 						firstPass = false;
 					}
-					
-				} while(gcis.available() > 0);
+					else
+					{
+						for(int i = prevIn; i < GLBuf.length; i++)
+						{
+							GLBuf[i] = buf[i-prevIn];
+						}
+						prevIn = in;
+					}
+				}
+				
+				groupList = (GroupList) gSer.deserialize(GLBuf);
 //				FileInputStream fis = new FileInputStream(groupFile);
 //				groupStream = new ObjectInputStream(fis);
 //				groupList = (GroupList)groupStream.readObject();
@@ -386,6 +391,7 @@ public class GroupServer extends Server
 		catch(IOException e)
 		{
 			System.out.println("Error reading from GroupList file");
+			e.printStackTrace();
 			System.exit(-1);
 		}
 		catch(ClassNotFoundException e)
@@ -481,7 +487,7 @@ class ShutDownListener extends Thread
 	{
 		System.out.println("Shutting down server");
 		ObjectOutputStream userOutStream;
-		ObjectOutputStream groupOutStream;
+		// ObjectOutputStream groupOutStream;
 		try
 		{
 			userOutStream = new ObjectOutputStream(new FileOutputStream("UserList.bin"));
@@ -494,8 +500,43 @@ class ShutDownListener extends Thread
 		}
 		try
 		{
-			groupOutStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
+			Serializer glSer = new Serializer();
+			
+			Cipher outCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+			outCipher.init(Cipher.ENCRYPT_MODE, my_gs.gKey, my_gs.IV);
+		
+			FileOutputStream gfos = new FileOutputStream("GroupList.bin");
+			CipherOutputStream gcos = new CipherOutputStream(gfos, outCipher);
+			
+			//encrypts gKey and writes the encrypted key to file
+			//going to use ECB because they key will be one block anyways and it saves some work having to store two IVs
+			Cipher gCipher = Cipher.getInstance("AES", "BC");
+			gCipher.init(Cipher.ENCRYPT_MODE, my_gs.adminKey);
+			byte[] gKeyEnc = gCipher.doFinal(my_gs.gKey.getEncoded());
+			
+			FileOutputStream mfos = new FileOutputStream("GroupList.meta");
+			
+			mfos.write(gKeyEnc);
+			mfos.write(my_gs.ivBytes);
+			
+			byte[] GLBytes = glSer.serialize(my_gs.groupList);
+			
+			gcos.write(GLBytes);
+			gcos.flush();
+			gcos.close();
+			gfos.close();
+			// groupOutStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
 			//groupOutStream.writeObject(my_gs.groupList);
+			
+			byte[] amtWrit = new byte[4];
+			amtWrit[0] = (byte) (GLBytes.length >> 24);
+			amtWrit[1] = (byte) (GLBytes.length >> 16);
+			amtWrit[2] = (byte) (GLBytes.length >> 8);
+			amtWrit[3] = (byte) (GLBytes.length);
+			mfos.write(amtWrit);
+			mfos.flush();
+			mfos.close();
+		
 		}
 		catch(Exception e)
 		{
@@ -535,8 +576,42 @@ class AutoSave extends Thread
 				}
 				try
 				{
-					groupOutStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
+					Serializer glSer = new Serializer();
+					
+					Cipher outCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+					outCipher.init(Cipher.ENCRYPT_MODE, my_gs.gKey, my_gs.IV);
+				
+					FileOutputStream gfos = new FileOutputStream("GroupList.bin");
+					CipherOutputStream gcos = new CipherOutputStream(gfos, outCipher);
+					
+					//encrypts gKey and writes the encrypted key to file
+					//going to use ECB because they key will be one block anyways and it saves some work having to store two IVs
+					Cipher gCipher = Cipher.getInstance("AES", "BC");
+					gCipher.init(Cipher.ENCRYPT_MODE, my_gs.adminKey);
+					byte[] gKeyEnc = gCipher.doFinal(my_gs.gKey.getEncoded());
+					
+					FileOutputStream mfos = new FileOutputStream("GroupList.meta");
+					
+					mfos.write(gKeyEnc);
+					mfos.write(my_gs.ivBytes);
+					
+					byte[] GLBytes = glSer.serialize(my_gs.groupList);
+					
+					gcos.write(GLBytes);
+					gcos.flush();
+					gcos.close();
+					gfos.close();
+					// groupOutStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
 					//groupOutStream.writeObject(my_gs.groupList);
+					
+					byte[] amtWrit = new byte[4];
+					amtWrit[0] = (byte) (GLBytes.length >> 24);
+					amtWrit[1] = (byte) (GLBytes.length >> 16);
+					amtWrit[2] = (byte) (GLBytes.length >> 8);
+					amtWrit[3] = (byte) (GLBytes.length);
+					mfos.write(amtWrit);
+					mfos.flush();
+					mfos.close();
 				}
 				catch(Exception e)
 				{
