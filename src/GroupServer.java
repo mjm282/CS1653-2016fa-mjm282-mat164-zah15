@@ -52,6 +52,10 @@ public class GroupServer extends Server
 		ObjectInputStream groupStream;
 		ObjectInputStream keyStream; //input stream for RSA keypair
 		String username;
+		
+		String pass1;
+		String pass2;
+		boolean match = false;
 
 		//This runs a thread that saves the lists on program exit
 		Runtime runtime = Runtime.getRuntime();
@@ -178,16 +182,33 @@ public class GroupServer extends Server
 				System.exit(-1);
 			}
 
-
+			
+			
 			groupList.addGroup("ADMIN");
 			groupList.addGroupUser("ADMIN", username);
 			groupList.addGroupOwner("ADMIN", username);
 
 			userList.addGroup(username, "ADMIN");
 			userList.addOwnership(username, "ADMIN");
+
+			//T8 Solution, prompt the administrator to set up a password for encrypting groupList before groupList is created and written to file
+			System.out.println("Before we set up the GroupList file, please create a password for secure storage.");
+			while(!match)
+			{
+				pass1 = console.next();
+				System.out.println("Please re-enter your password");
+				pass2 = console.next();
+				if(pass1.equals(pass2)) match = true;
+				else System.out.println("Passwords do not match!");
+			}
+			
 			try
 			{
 				groupOutStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
+				
+				//generates a SHA-256 hash of the admin's password
+				//uses that hash ()
+				
 				groupOutStream.writeObject(this.groupList);
 			}
 			catch(Exception ee)
