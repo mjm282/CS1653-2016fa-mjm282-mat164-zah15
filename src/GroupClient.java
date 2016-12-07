@@ -9,7 +9,6 @@ import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.*;
 import java.security.*;
 import java.math.BigInteger;
-import org.bouncycastle.*;
 import javax.crypto.CipherOutputStream;
 
 public class GroupClient extends Client implements GroupClientInterface
@@ -728,6 +727,8 @@ public class GroupClient extends Client implements GroupClientInterface
 
 		fos.close();
 		fis.close();
+		cos.flush();
+		cos.close();
 		inFile.delete();
 
 		}catch(Exception e){

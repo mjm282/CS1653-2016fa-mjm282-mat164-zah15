@@ -14,6 +14,12 @@ import java.io.*;
 import java.util.*;
 import java.security.*;
 import org.bouncycastle.*;
+import javax.crypto.KeyGenerator;
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.CipherOutputStream;
+import javax.crypto.CipherInputStream;
+import javax.crypto.spec.IvParameterSpec;
 
 
 public class GroupServer extends Server
@@ -53,8 +59,9 @@ public class GroupServer extends Server
 		ObjectInputStream keyStream; //input stream for RSA keypair
 		String username;
 		
-		String pass1;
-		String pass2;
+		String setpass1 = null;
+		String setpass2 = null;
+		String password = null;
 		boolean match = false;
 
 		//This runs a thread that saves the lists on program exit
@@ -195,21 +202,78 @@ public class GroupServer extends Server
 			System.out.println("Before we set up the GroupList file, please create a password for secure storage.");
 			while(!match)
 			{
-				pass1 = console.next();
-				System.out.println("Please re-enter your password");
-				pass2 = console.next();
-				if(pass1.equals(pass2)) match = true;
-				else System.out.println("Passwords do not match!");
+				setpass1 = console.next();
+				//eight character minimum length, not too big, not to small
+				if(setpass1.length() >= 8) 
+				{
+					System.out.println("Please re-enter your password");
+					setpass2 = console.next();
+					if(setpass1.equals(setpass2)) 
+					{
+						match = true;
+						password = setpass1;
+					}
+					else System.out.println("Passwords do not match!");					
+				}
+				else
+				{
+					System.out.println("Password is too short, needs to be at least 8 characters");
+				}
 			}
 			
 			try
 			{
-				groupOutStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
+				// groupOutStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
+				//groupOutStream.writeObject(this.groupList);
 				
-				//generates a SHA-256 hash of the admin's password
-				//uses that hash ()
+				Serializer glSer = new Serializer();
 				
-				groupOutStream.writeObject(this.groupList);
+				Key adminKey = getAdminKey(password);	//gets the key to encrypt GroupList.bin's AES encryption key stored at the start of the file
+				//having an AES encrypted AES key allows for password changing
+				
+				//generates an IV for GroupList.bin, will be stored at the beginning of the file
+				SecureRandom ivRand = new SecureRandom();
+				byte[] ivBytes = new byte[16];
+				ivRand.nextBytes(ivBytes);
+				IvParameterSpec IV = new IvParameterSpec(ivBytes);
+				
+				//generate the actual AES key to encrypt GroupList.bin
+				Key gKey = genKey();
+				
+				Cipher outCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+				outCipher.init(Cipher.ENCRYPT_MODE, gKey, IV);
+				
+				FileOutputStream gfos = new FileOutputStream(groupFile);
+				CipherOutputStream gcos = new CipherOutputStream(gfos, outCipher);
+				
+				//encrypts gKey and writes the encrypted key to file
+				//going to use ECB because they key will be one block anyways and it saves some work having to store two IVs
+				Cipher gCipher = Cipher.getInstance("AES", "BC");
+				gCipher.init(Cipher.ENCRYPT_MODE, adminKey);
+				byte[] gKeyEnc = gCipher.doFinal(gKey.getEncoded());
+				for(int i = 0; i < gKeyEnc.length; i++)
+				{
+					System.out.print(gKeyEnc[i]);
+				}
+				System.out.println();
+				for(int i = 0; i < ivBytes.length; i++)
+				{
+					System.out.print(ivBytes[i]);
+				}
+				System.out.println();
+				
+				FileOutputStream mfos = new FileOutputStream("GroupList.meta");
+				
+				mfos.write(gKeyEnc);
+				mfos.write(ivBytes);
+				byte[] GLBytes = glSer.serialize(this.groupList);
+				for(int i = 0; i < GLBytes.length; i++)
+				{
+					System.out.print(GLBytes[i]);
+				}
+				System.out.println();
+				System.out.println(GLBytes.length);
+				gcos.write(GLBytes);
 			}
 			catch(Exception ee)
 			{
@@ -231,10 +295,74 @@ public class GroupServer extends Server
 		//Open group file to get group list
 		try
 		{
-			FileInputStream fis = new FileInputStream(groupFile);
-			groupStream = new ObjectInputStream(fis);
-			groupList = (GroupList)groupStream.readObject();
-			//runtime.gc();
+			if(groupList == null)
+			{
+				System.out.println("Please enter password to decrypt and load GroupList.bin");
+				password = console.next();
+				Key aKey = getAdminKey(password);
+				Serializer gSer = new Serializer();
+				byte[] gKeyBytes = new byte[32];
+				byte[] ivBytes = new byte[16];
+				
+				FileInputStream mfis = new FileInputStream("GroupList.meta");
+				
+				mfis.read(gKeyBytes);
+				mfis.read(ivBytes);
+				
+				mfis.close();
+				
+				for(int i = 0; i < gKeyBytes.length; i++)
+				{
+					System.out.print(gKeyBytes[i]);
+				}
+				System.out.println();
+				for(int i = 0; i < ivBytes.length; i++)
+				{
+					System.out.print(ivBytes[i]);
+				}
+				System.out.println();
+				
+				//creates a cipher and decrypts the AES key using adminKey
+				Cipher keyCipher = Cipher.getInstance("AES", "BC");
+				keyCipher.init(Cipher.DECRYPT_MODE, aKey);
+				byte[] gKeyDec = keyCipher.doFinal(gKeyBytes);
+				Key gKey = new SecretKeySpec(gKeyDec, "AES");
+				
+				//recreates the IV from the .meta file bytes
+				IvParameterSpec gIV = new IvParameterSpec(ivBytes);
+				
+				System.out.println("1");
+				Cipher inCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+				inCipher.init(Cipher.DECRYPT_MODE, gKey, gIV);
+				System.out.println("2");
+				FileInputStream gfis = new FileInputStream(groupFile);
+				System.out.println("3");
+				CipherInputStream gcis = new CipherInputStream(gfis, inCipher);
+				System.out.println("4");
+				byte[] GLBuf;
+				boolean firstPass = true;
+				do
+				{
+					System.out.println("5");
+					byte[] buf = new byte[4096];
+					int in = gcis.read(buf);
+					System.out.println("6");
+					if(firstPass)
+					{
+						GLBuf = new byte[in];
+						for(int i = 0; i < in; i++)
+						{
+							GLBuf[i] = buf[i];
+						}
+						firstPass = false;
+					}
+					
+				} while(gcis.available() > 0);
+//				FileInputStream fis = new FileInputStream(groupFile);
+//				groupStream = new ObjectInputStream(fis);
+//				groupList = (GroupList)groupStream.readObject();
+				//runtime.gc();
+			}
 		}
 		catch(FileNotFoundException e)
 		{
@@ -265,12 +393,17 @@ public class GroupServer extends Server
 			System.out.println("Error reading from GroupList file");
 			System.exit(-1);
 		}
-
+		catch(Exception e)
+		{
+			e.printStackTrace();
+			System.exit(-1);
+		}
+		
 		//Autosave Daemon. Saves lists every 5 minutes
 		AutoSave aSave = new AutoSave(this);
 		aSave.setDaemon(true);
 		aSave.start();
-
+		
 		//This block listens for connections and creates threads on new connections
 		try
 		{
@@ -306,6 +439,32 @@ public class GroupServer extends Server
 		return servPrivateKey;
 
 	}
+	
+	//Generates a key from entered password
+	public Key getAdminKey(String pass) throws Exception
+	{
+		//generates a SHA-256 hash of the admin's password
+		//uses that hash (the first 128 bits of it because in 6110 only 128 bits have been working) to generate an AES key
+		MessageDigest md = MessageDigest.getInstance("SHA-256");
+		md.update(pass.getBytes());
+		byte[] hashPass = md.digest();
+		byte[] passKey = new byte[hashPass.length / 2];
+		for(int i = 0; i < passKey.length; i++)
+		{
+			passKey[i] = hashPass[i];
+		}
+		
+		Key adminKey = new SecretKeySpec(passKey, "AES"); //the AES key generated from the admin's password	
+		return adminKey;
+	}
+	
+	public Key genKey() throws Exception
+	{
+		KeyGenerator generator = KeyGenerator.getInstance("AES", "BC");
+		generator.init(128);
+		Key myAESkey = generator.generateKey();
+		return myAESkey;
+	}
 
 }
 
@@ -336,7 +495,7 @@ class ShutDownListener extends Thread
 		try
 		{
 			groupOutStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
-			groupOutStream.writeObject(my_gs.groupList);
+			//groupOutStream.writeObject(my_gs.groupList);
 		}
 		catch(Exception e)
 		{
@@ -377,7 +536,7 @@ class AutoSave extends Thread
 				try
 				{
 					groupOutStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
-					groupOutStream.writeObject(my_gs.groupList);
+					//groupOutStream.writeObject(my_gs.groupList);
 				}
 				catch(Exception e)
 				{
