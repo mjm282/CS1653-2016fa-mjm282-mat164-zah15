@@ -616,12 +616,13 @@ public class FileThread extends Thread
 							{
 								System.out.println("Token Verified");
 								File f = new File("shared_files/"+"_"+remotePath.replace('/', '_'));
+								File metaF = new File("shared_files/"+"_"+remotePath.replace('/', '_')+".meta");
 
 								if (!f.exists()) {
 									System.out.printf("Error file %s missing from disk\n", "_"+remotePath.replace('/', '_'));
 									e = new Envelope("ERROR_FILEMISSING");
 								}
-								else if (f.delete()) {
+								else if (f.delete() && metaF.delete()) {
 									System.out.printf("File %s deleted from disk\n", "_"+remotePath.replace('/', '_'));
 									FileServer.fileList.removeFile("/"+remotePath);
 									e = new Envelope("OK");
